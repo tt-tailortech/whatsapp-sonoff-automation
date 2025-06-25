@@ -19,6 +19,12 @@ class WhatsAppService:
         Parse WhatsApp webhook payload and extract message information
         """
         try:
+            # Debug: Print received payload structure
+            print(f"📨 Webhook payload keys: {list(payload.keys())}")
+            if 'messages' in payload:
+                print(f"📨 Messages found: {len(payload['messages'])}")
+            if 'entry' in payload:
+                print(f"📨 Entry found: {len(payload['entry'])}")
             # Handle different webhook formats
             if "messages" in payload and payload["messages"]:
                 # Direct messages format
@@ -66,22 +72,37 @@ class WhatsAppService:
         Send a text message via WhatsApp
         """
         try:
-            url = f"{self.base_url}/messages/text"
+            # Try different endpoint formats
+            endpoints_to_try = [
+                f"{self.base_url}/messages/text",
+                f"{self.base_url}/messages",
+            ]
             
-            payload = {
-                "to": phone_number,
-                "body": message
-            }
+            for url in endpoints_to_try:
+                try:
+                    # Try different payload formats
+                    payloads_to_try = [
+                        {"to": phone_number, "body": message},
+                        {"to": phone_number, "text": message},
+                        {"to": phone_number, "message": message},
+                    ]
+                    
+                    for payload in payloads_to_try:
+                        async with httpx.AsyncClient(timeout=10.0) as client:
+                            response = await client.post(url, headers=self.headers, json=payload)
+                            
+                            if response.status_code == 200:
+                                print(f"✅ Text message sent to {phone_number} via {url}")
+                                return True
+                            else:
+                                print(f"❌ Failed {url}: {response.status_code} - {response.text}")
+                                
+                except Exception as e:
+                    print(f"Error with {url}: {str(e)}")
+                    continue
             
-            async with httpx.AsyncClient() as client:
-                response = await client.post(url, headers=self.headers, json=payload)
-                
-                if response.status_code == 200:
-                    print(f"Text message sent to {phone_number}")
-                    return True
-                else:
-                    print(f"Failed to send text message: {response.status_code} - {response.text}")
-                    return False
+            print(f"❌ All text message methods failed for {phone_number}")
+            return False
                     
         except Exception as e:
             print(f"Send text message error: {str(e)}")

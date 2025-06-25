@@ -29,7 +29,10 @@ class EWeLinkService:
     def _get_auth_headers(self) -> Dict[str, str]:
         """Get authentication headers for API requests"""
         timestamp = str(int(time.time() * 1000))
-        nonce = str(int(time.time()))[-8:]  # Last 8 digits
+        # Generate 8-character nonce properly
+        import random
+        import string
+        nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
         signature = self._generate_signature(timestamp, nonce)
         
         headers = {
