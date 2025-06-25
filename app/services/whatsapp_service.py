@@ -122,7 +122,7 @@ class WhatsAppService:
     
     async def send_voice_message(self, phone_number: str, audio_file_path: str) -> bool:
         """
-        Send a voice message via WhatsApp
+        Send a voice message via WhatsApp using WHAPI.cloud API
         """
         try:
             url = f"{self.base_url}/messages/voice"
@@ -132,7 +132,7 @@ class WhatsAppService:
                 audio_data = audio_file.read()
                 audio_base64 = base64.b64encode(audio_data).decode()
             
-            # Prepare payload with base64 audio
+            # Correct payload format based on WHAPI.cloud documentation
             payload = {
                 "to": phone_number,
                 "voice": f"data:audio/ogg;base64,{audio_base64}"
@@ -142,10 +142,10 @@ class WhatsAppService:
                 response = await client.post(url, headers=self.headers, json=payload)
                 
                 if response.status_code == 200:
-                    print(f"Voice message sent to {phone_number}")
+                    print(f"✅ Voice message sent to {phone_number}")
                     return True
                 else:
-                    print(f"Failed to send voice message: {response.status_code} - {response.text}")
+                    print(f"❌ Failed to send voice message: {response.status_code} - {response.text}")
                     return False
                     
         except Exception as e:
@@ -154,44 +154,39 @@ class WhatsAppService:
     
     async def send_voice_message_with_file_upload(self, phone_number: str, audio_file_path: str) -> bool:
         """
-        Alternative method: Send voice message using file upload
+        Alternative method: Send voice message using multipart file upload
         """
         try:
             url = f"{self.base_url}/messages/voice"
             
             # Prepare multipart form data
-            files = {
-                "voice": ("voice.ogg", open(audio_file_path, "rb"), "audio/ogg")
-            }
-            
-            data = {
-                "to": phone_number
-            }
-            
-            # Remove Content-Type header for multipart
-            headers = {
-                "Authorization": f"Bearer {self.token}"
-            }
-            
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(url, headers=headers, data=data, files=files)
+            with open(audio_file_path, "rb") as audio_file:
+                files = {
+                    "voice": ("voice.ogg", audio_file, "audio/ogg; codecs=opus")
+                }
                 
-                if response.status_code == 200:
-                    print(f"Voice message sent via upload to {phone_number}")
-                    return True
-                else:
-                    print(f"Failed to send voice message via upload: {response.status_code} - {response.text}")
-                    return False
+                data = {
+                    "to": phone_number
+                }
+                
+                # Remove Content-Type header for multipart
+                headers = {
+                    "Authorization": f"Bearer {self.token}"
+                }
+                
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(url, headers=headers, data=data, files=files)
                     
+                    if response.status_code == 200:
+                        print(f"✅ Voice message sent via upload to {phone_number}")
+                        return True
+                    else:
+                        print(f"❌ Failed to send voice message via upload: {response.status_code} - {response.text}")
+                        return False
+                        
         except Exception as e:
             print(f"Send voice message via upload error: {str(e)}")
             return False
-        finally:
-            # Close file if it was opened
-            try:
-                files["voice"][1].close()
-            except:
-                pass
     
     async def get_account_info(self) -> Dict[str, Any]:
         """
