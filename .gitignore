@@ -1,0 +1,36 @@
+# Environment variables
+.env
+*.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Audio files
+temp_audio/
+*.mp3
+*.ogg
+*.wav
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test files
+test_results/
+
+# Dependencies
+venv/
+env/
+ENV/

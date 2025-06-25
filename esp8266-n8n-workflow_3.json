@@ -1,0 +1,381 @@
+{
+  "name": "ESP8266 Control via WhatsApp Business Cloud",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "whatsapp-trigger",
+      "name": "WhatsApp Message Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [250, 400],
+      "webhookId": "whatsapp-message-webhook"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// 📝 PROCESADOR DE COMANDOS\n// Este nodo analiza el mensaje recibido y valida el comando\n\n// Extraer el mensaje de texto del payload de WhatsApp\nconst incomingMessage = $json.entry?.[0]?.changes?.[0]?.value?.messages?.[0];\n\nif (!incomingMessage || incomingMessage.type !== 'text') {\n  return [{\n    json: {\n      isValid: false,\n      error: 'No se recibió un mensaje de texto válido',\n      phoneNumber: 'unknown',\n      messageId: 'unknown'\n    }\n  }];\n}\n\n// Extraer información del mensaje\nconst messageText = incomingMessage.text.body;\nconst phoneNumber = incomingMessage.from;\nconst messageId = incomingMessage.id;\nconst contactName = $json.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.profile?.name || 'Usuario';\n\n// Convertir comando a mayúsculas y eliminar espacios\nconst command = messageText.trim().toUpperCase();\n\n// Validar comandos permitidos\nconst validCommands = ['ON', 'OFF', 'BLINK', 'STATUS'];\nconst isValidCommand = validCommands.includes(command);\n\n// Configuración del dispositivo Arduino IoT Cloud\nconst deviceConfig = {\n  thingId: 'a5c7e315-765b-465c-8044-9d3c7f19490e',  // Device ID del PDF\n  variableName: 'ledCommand',  // Variable configurada en el Thing\n  deviceName: 'ESP8266_IoT_LED'\n};\n\n// Preparar respuesta\nif (isValidCommand) {\n  // Comando válido - preparar para enviar a Arduino IoT Cloud\n  return [{\n    json: {\n      isValid: true,\n      command: command,\n      phoneNumber: phoneNumber,\n      messageId: messageId,\n      contactName: contactName,\n      thingId: deviceConfig.thingId,\n      variableName: deviceConfig.variableName,\n      deviceName: deviceConfig.deviceName,\n      apiUrl: `https://api2.arduino.cc/iot/v2/things/${deviceConfig.thingId}/properties/${deviceConfig.variableName}`,\n      timestamp: new Date().toISOString()\n    }\n  }];\n} else {\n  // Comando inválido - preparar mensaje de error\n  return [{\n    json: {\n      isValid: false,\n      command: command,\n      phoneNumber: phoneNumber,\n      messageId: messageId,\n      contactName: contactName,\n      errorMessage: `❌ Comando no reconocido: \"${messageText}\"\\n\\n` +\n                   `📋 Comandos disponibles:\\n` +\n                   `• *ON* - Encender LED\\n` +\n                   `• *OFF* - Apagar LED\\n` +\n                   `• *BLINK* - Modo parpadeo\\n` +\n                   `• *STATUS* - Ver estado actual\\n\\n` +\n                   `Envía uno de estos comandos para controlar el dispositivo.`,\n      timestamp: new Date().toISOString()\n    }\n  }];\n}"
+      },
+      "id": "process-whatsapp-message",
+      "name": "Process WhatsApp Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [470, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-valid-command",
+              "leftValue": "={{$json.isValid}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-valid-command",
+      "name": "Is Valid Command?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-status-command",
+              "leftValue": "={{$json.command}}",
+              "rightValue": "STATUS",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-status-command",
+      "name": "Is STATUS Command?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{$json.apiUrl}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"value\": \"{{$json.command}}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "send-to-arduino",
+      "name": "Send Command to Arduino IoT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1130, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "Arduino IoT Cloud Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api2.arduino.cc/iot/v2/things/{{$json.thingId}}/properties",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "get-device-status",
+      "name": "Get Device Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1130, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "Arduino IoT Cloud Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// 📊 FORMATEAR RESPUESTA DE ESTADO\n// Procesa la respuesta de Arduino IoT Cloud y formatea el mensaje\n\nconst properties = $json.body || $json || [];\nconst phoneNumber = $node[\"Process WhatsApp Command\"].json.phoneNumber;\nconst contactName = $node[\"Process WhatsApp Command\"].json.contactName;\n\n// Buscar las propiedades relevantes\nlet ledStatus = 'Desconocido';\nlet ledCommand = 'Desconocido';\nlet deviceOnline = false;\nlet lastUpdate = 'Nunca';\n\nproperties.forEach(prop => {\n  if (prop.name === 'ledStatus') {\n    ledStatus = prop.last_value || 'Desconocido';\n  }\n  if (prop.name === 'ledCommand') {\n    ledCommand = prop.last_value || 'Desconocido';\n  }\n  if (prop.name === 'deviceOnline') {\n    deviceOnline = prop.last_value === true;\n  }\n  if (prop.updated_at) {\n    // Formatear fecha a hora local\n    const date = new Date(prop.updated_at);\n    lastUpdate = date.toLocaleString('es-ES', {\n      timeZone: 'America/Mexico_City',\n      day: '2-digit',\n      month: '2-digit',\n      year: 'numeric',\n      hour: '2-digit',\n      minute: '2-digit'\n    });\n  }\n});\n\n// Crear mensaje de estado formateado\nconst statusMessage = \n  `📊 *Estado del Dispositivo ESP8266*\\n\\n` +\n  `👤 Hola ${contactName}!\\n\\n` +\n  `🔌 *Conexión:* ${deviceOnline ? '✅ En línea' : '❌ Desconectado'}\\n` +\n  `💡 *Estado LED:* ${ledStatus}\\n` +\n  `📝 *Último comando:* ${ledCommand}\\n` +\n  `🕐 *Actualizado:* ${lastUpdate}\\n\\n` +\n  `_Envía ON, OFF o BLINK para controlar el LED_`;\n\nreturn [{\n  json: {\n    success: true,\n    message: statusMessage,\n    phoneNumber: phoneNumber,\n    ledStatus: ledStatus,\n    deviceOnline: deviceOnline,\n    lastUpdate: lastUpdate\n  }\n}];"
+      },
+      "id": "format-status-response",
+      "name": "Format Status Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1350, 180]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// 🎯 PROCESAR RESPUESTA DE COMANDO\n// Analiza si el comando se ejecutó correctamente\n\nconst command = $node[\"Process WhatsApp Command\"].json.command;\nconst phoneNumber = $node[\"Process WhatsApp Command\"].json.phoneNumber;\nconst contactName = $node[\"Process WhatsApp Command\"].json.contactName;\nconst deviceName = $node[\"Process WhatsApp Command\"].json.deviceName;\nconst responseStatus = $json.statusCode || 'unknown';\nconst responseBody = $json.body;\n\n// Verificar si la respuesta fue exitosa\nconst success = responseStatus >= 200 && responseStatus < 300;\n\nif (success) {\n  // Comando ejecutado exitosamente\n  let actionDescription = '';\n  \n  switch(command) {\n    case 'ON':\n      actionDescription = '💡 LED encendido';\n      break;\n    case 'OFF':\n      actionDescription = '💡 LED apagado';\n      break;\n    case 'BLINK':\n      actionDescription = '💡 LED en modo parpadeo';\n      break;\n  }\n  \n  const successMessage = \n    `✅ *Comando ejecutado exitosamente*\\n\\n` +\n    `👤 ${contactName}\\n` +\n    `📱 Dispositivo: ${deviceName}\\n` +\n    `⚡ Comando: ${command}\\n` +\n    `${actionDescription}\\n\\n` +\n    `_El dispositivo ha recibido tu comando_`;\n  \n  return [{\n    json: {\n      success: true,\n      message: successMessage,\n      phoneNumber: phoneNumber,\n      command: command,\n      status: 'executed'\n    }\n  }];\n} else {\n  // Error al ejecutar el comando\n  const errorMessage = \n    `❌ *Error al ejecutar comando*\\n\\n` +\n    `No se pudo enviar el comando \"${command}\" al dispositivo.\\n\\n` +\n    `📱 Dispositivo: ${deviceName}\\n` +\n    `🔴 Código de error: ${responseStatus}\\n\\n` +\n    `Posibles causas:\\n` +\n    `• El dispositivo está desconectado\\n` +\n    `• Error de conexión con Arduino IoT Cloud\\n` +\n    `• Token de API inválido\\n\\n` +\n    `_Intenta nuevamente en unos momentos_`;\n  \n  return [{\n    json: {\n      success: false,\n      message: errorMessage,\n      phoneNumber: phoneNumber,\n      command: command,\n      status: 'failed',\n      error: responseBody?.error || 'Unknown error'\n    }\n  }];\n}"
+      },
+      "id": "process-command-response",
+      "name": "Process Command Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendText",
+        "phoneNumberId": "={{$node[\"WhatsApp Message Trigger\"].json.entry[0].id}}",
+        "to": "={{$json.phoneNumber}}",
+        "text": "={{$json.message}}"
+      },
+      "id": "send-whatsapp-response",
+      "name": "Send WhatsApp Response",
+      "type": "n8n-nodes-base.whatsAppBusinessCloud",
+      "typeVersion": 1,
+      "position": [1570, 240],
+      "credentials": {
+        "whatsAppBusinessCloudApi": {
+          "id": "2",
+          "name": "WhatsApp Business Cloud Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendText",
+        "phoneNumberId": "={{$node[\"WhatsApp Message Trigger\"].json.entry[0].id}}",
+        "to": "={{$json.phoneNumber}}",
+        "text": "={{$json.errorMessage}}"
+      },
+      "id": "send-error-message",
+      "name": "Send Error Message",
+      "type": "n8n-nodes-base.whatsAppBusinessCloud",
+      "typeVersion": 1,
+      "position": [910, 500],
+      "credentials": {
+        "whatsAppBusinessCloudApi": {
+          "id": "2",
+          "name": "WhatsApp Business Cloud Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "device-register",
+        "options": {}
+      },
+      "id": "device-register-webhook",
+      "name": "Device Registration Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 700],
+      "webhookId": "esp8266-device-register"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// 📝 PROCESAR REGISTRO DE DISPOSITIVO\n// Registra cuando un ESP8266 se conecta\n\nconst ip = $json.body?.ip || 'unknown';\nconst deviceId = $json.body?.device_id || 'unknown';\nconst firmwareVersion = $json.body?.firmware || 'unknown';\n\nconsole.log(`Dispositivo registrado: ${deviceId} desde IP ${ip}`);\n\nreturn [{\n  json: {\n    success: true,\n    message: \"Device registration successful\",\n    deviceId: deviceId,\n    ip: ip,\n    firmwareVersion: firmwareVersion,\n    timestamp: new Date().toISOString(),\n    note: \"Device registered in n8n workflow\"\n  }\n}];"
+      },
+      "id": "process-device-registration",
+      "name": "Process Device Registration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [470, 700]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}"
+      },
+      "id": "respond-registration",
+      "name": "Respond Registration",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [690, 700]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WhatsApp Message Trigger": {
+      "main": [
+        [
+          {
+            "node": "Process WhatsApp Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process WhatsApp Command": {
+      "main": [
+        [
+          {
+            "node": "Is Valid Command?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid Command?": {
+      "main": [
+        [
+          {
+            "node": "Is STATUS Command?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is STATUS Command?": {
+      "main": [
+        [
+          {
+            "node": "Get Device Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Command to Arduino IoT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Device Status": {
+      "main": [
+        [
+          {
+            "node": "Format Status Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Command to Arduino IoT": {
+      "main": [
+        [
+          {
+            "node": "Process Command Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Status Response": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Command Response": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Device Registration Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Device Registration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Device Registration": {
+      "main": [
+        [
+          {
+            "node": "Respond Registration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2.1.0",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "esp8266-whatsapp-arduino-iot"
+  },
+  "id": "esp8266-whatsapp-arduino-workflow",
+  "tags": []
+}
