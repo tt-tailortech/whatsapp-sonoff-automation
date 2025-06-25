@@ -21,11 +21,35 @@ class WhatsAppService:
         try:
             # Debug: Print received payload structure
             print(f"📨 Webhook payload keys: {list(payload.keys())}")
-            if 'messages' in payload:
-                print(f"📨 Messages found: {len(payload['messages'])}")
-            if 'entry' in payload:
-                print(f"📨 Entry found: {len(payload['entry'])}")
-            # Handle different webhook formats
+            print(f"📨 Full payload: {payload}")
+            
+            # Handle WHAPI.cloud webhook format with 'chats_updates'
+            if "chats_updates" in payload and payload["chats_updates"]:
+                chat_updates = payload["chats_updates"]
+                print(f"📨 Chat updates found: {len(chat_updates)}")
+                
+                for chat_update in chat_updates:
+                    print(f"📨 Chat update keys: {list(chat_update.keys())}")
+                    
+                    # Check if this chat update contains messages
+                    if "messages" in chat_update and chat_update["messages"]:
+                        messages = chat_update["messages"]
+                        print(f"📨 Messages in chat update: {len(messages)}")
+                        
+                        for message in messages:
+                            print(f"📨 Message keys: {list(message.keys())}")
+                            print(f"📨 Message type: {message.get('type')}")
+                            
+                            if message.get("type") == "text":
+                                return WhatsAppMessage(
+                                    id=message.get("id", ""),
+                                    from_phone=message.get("from", ""),
+                                    text=message.get("text", {}).get("body", "") if isinstance(message.get("text"), dict) else message.get("text", ""),
+                                    contact_name=message.get("from_name", "Usuario"),
+                                    timestamp=message.get("timestamp", "")
+                                )
+            
+            # Handle other possible formats (keeping existing logic as fallback)
             if "messages" in payload and payload["messages"]:
                 # Direct messages format
                 message = payload["messages"][0]
@@ -61,6 +85,7 @@ class WhatsAppService:
                             timestamp=message.get("timestamp", "")
                         )
             
+            print("❌ No valid message format found in webhook payload")
             return None
             
         except Exception as e:
