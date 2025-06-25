@@ -31,7 +31,24 @@ class WhatsAppService:
                 for chat_update in chat_updates:
                     print(f"📨 Chat update keys: {list(chat_update.keys())}")
                     
-                    # Check if this chat update contains messages
+                    # Check for last_message in after_update (new message received)
+                    if "after_update" in chat_update:
+                        after_update = chat_update["after_update"]
+                        if "last_message" in after_update:
+                            message = after_update["last_message"]
+                            print(f"📨 Found last_message: {message}")
+                            
+                            # Only process if message is not from us and is text
+                            if not message.get("from_me", True) and message.get("type") == "text":
+                                return WhatsAppMessage(
+                                    id=message.get("id", ""),
+                                    from_phone=message.get("from", ""),
+                                    text=message.get("text", {}).get("body", "") if isinstance(message.get("text"), dict) else message.get("text", ""),
+                                    contact_name=message.get("from_name", "Usuario"),
+                                    timestamp=str(message.get("timestamp", ""))
+                                )
+                    
+                    # Check if this chat update contains direct messages array
                     if "messages" in chat_update and chat_update["messages"]:
                         messages = chat_update["messages"]
                         print(f"📨 Messages in chat update: {len(messages)}")
@@ -40,13 +57,13 @@ class WhatsAppService:
                             print(f"📨 Message keys: {list(message.keys())}")
                             print(f"📨 Message type: {message.get('type')}")
                             
-                            if message.get("type") == "text":
+                            if message.get("type") == "text" and not message.get("from_me", True):
                                 return WhatsAppMessage(
                                     id=message.get("id", ""),
                                     from_phone=message.get("from", ""),
                                     text=message.get("text", {}).get("body", "") if isinstance(message.get("text"), dict) else message.get("text", ""),
                                     contact_name=message.get("from_name", "Usuario"),
-                                    timestamp=message.get("timestamp", "")
+                                    timestamp=str(message.get("timestamp", ""))
                                 )
             
             # Handle other possible formats (keeping existing logic as fallback)
