@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     ewelink_app_id: str
     ewelink_app_secret: str
     ewelink_base_url: str = "https://eu-apia.coolkit.cc"
+    ewelink_email: str = ""
+    ewelink_password: str = ""
     
     # Application Configuration
     host: str = "0.0.0.0"

@@ -13,6 +13,8 @@ class EWeLinkService:
         self.app_id = settings.ewelink_app_id
         self.app_secret = settings.ewelink_app_secret
         self.base_url = settings.ewelink_base_url
+        self.email = settings.ewelink_email
+        self.password = settings.ewelink_password
         self.access_token = None
         self.user_id = None
         self._auth_attempted = False
@@ -134,11 +136,16 @@ class EWeLinkService:
         if self._auth_attempted:
             return False
             
-        # For now, we'll use app-based auth without user credentials
-        # This is a limitation - ideally we'd need actual user login
-        print("⚠️ eWeLink requires user authentication - device control disabled")
-        self._auth_attempted = True
-        return False
+        # Attempt authentication with user credentials
+        if self.email and self.password:
+            print(f"🔐 Attempting eWeLink authentication for {self.email}")
+            success = await self.authenticate(self.email, self.password)
+            self._auth_attempted = True
+            return success
+        else:
+            print("⚠️ eWeLink email/password not configured - device control disabled")
+            self._auth_attempted = True
+            return False
 
     async def control_device(self, device_id: str, command: str) -> bool:
         """
