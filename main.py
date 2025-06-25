@@ -2,27 +2,40 @@ import os
 import uvicorn
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
-from app.config import settings
-from app.models import WhatsAppWebhookPayload
-from app.services.whatsapp_service import WhatsAppService
-from app.services.voice_service import VoiceService
-from app.services.ewelink_service import EWeLinkService
-from app.services.command_processor import CommandProcessor
 
-# Create temp audio directory
-os.makedirs(settings.temp_audio_dir, exist_ok=True)
-
+# Create app first
 app = FastAPI(
     title="WhatsApp-Sonoff Voice Automation",
     description="Voice-enabled WhatsApp automation for Sonoff device control",
     version="1.0.0"
 )
 
-# Initialize services
-whatsapp_service = WhatsAppService()
-voice_service = VoiceService()
-ewelink_service = EWeLinkService()
-command_processor = CommandProcessor(whatsapp_service, voice_service, ewelink_service)
+# Initialize services with error handling
+try:
+    from app.config import settings
+    from app.models import WhatsAppWebhookPayload
+    from app.services.whatsapp_service import WhatsAppService
+    from app.services.voice_service import VoiceService
+    from app.services.ewelink_service import EWeLinkService
+    from app.services.command_processor import CommandProcessor
+
+    # Create temp audio directory
+    os.makedirs(settings.temp_audio_dir, exist_ok=True)
+
+    # Initialize services
+    whatsapp_service = WhatsAppService()
+    voice_service = VoiceService()
+    ewelink_service = EWeLinkService()
+    command_processor = CommandProcessor(whatsapp_service, voice_service, ewelink_service)
+    
+    SERVICES_INITIALIZED = True
+except Exception as e:
+    print(f"Service initialization error: {str(e)}")
+    SERVICES_INITIALIZED = False
+    whatsapp_service = None
+    voice_service = None
+    ewelink_service = None
+    command_processor = None
 
 @app.get("/")
 async def root():
@@ -30,11 +43,18 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "services": "operational"}
+    return {
+        "status": "healthy" if SERVICES_INITIALIZED else "degraded",
+        "services": "operational" if SERVICES_INITIALIZED else "error",
+        "services_initialized": SERVICES_INITIALIZED
+    }
 
 @app.post("/whatsapp-webhook")
 async def whatsapp_webhook(request: Request):
     try:
+        if not SERVICES_INITIALIZED:
+            return JSONResponse(content={"status": "error", "message": "Services not initialized"}, status_code=503)
+            
         payload = await request.json()
         
         # Process the incoming WhatsApp message
@@ -44,7 +64,7 @@ async def whatsapp_webhook(request: Request):
     
     except Exception as e:
         print(f"Webhook error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Webhook processing failed: {str(e)}")
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
 @app.post("/device-register")
 async def device_register(request: Request):
