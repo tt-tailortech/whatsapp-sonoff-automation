@@ -19,9 +19,10 @@ class EWeLinkService:
         self.user_id = None
         self._auth_attempted = False
     
-    def _generate_signature(self, timestamp: str, nonce: str) -> str:
+    def _generate_signature(self, timestamp: str, nonce: str, body: str = "") -> str:
         """Generate signature for eWeLink API authentication"""
-        message = f"{self.app_id}_{timestamp}_{nonce}"
+        # Try different signature formats
+        message = f"{self.app_id}_{timestamp}_{nonce}_{body}"
         signature = hmac.new(
             self.app_secret.encode(),
             message.encode(),
@@ -65,27 +66,48 @@ class EWeLinkService:
                 "countryCode": "+1"  # Adjust based on your region
             }
             
-            headers = self._get_auth_headers()
+            # Get headers without authorization token for login
+            timestamp = str(int(time.time() * 1000))
+            import random
+            import string
+            nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+            
+            signature = self._generate_signature(timestamp, nonce)
+            
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Sign {signature}",
+                "X-CK-Appid": self.app_id,
+                "X-CK-Timestamp": timestamp,
+                "X-CK-Nonce": nonce,
+                "X-CK-Signature": signature
+            }
+            
+            print(f"🔐 Login request headers: {headers}")
+            print(f"🔐 Login payload: {payload}")
             
             async with httpx.AsyncClient() as client:
                 response = await client.post(url, headers=headers, json=payload)
+                
+                print(f"🔐 Response status: {response.status_code}")
+                print(f"🔐 Response text: {response.text}")
                 
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("error") == 0:
                         self.access_token = data["data"]["at"]
                         self.user_id = data["data"]["user"]["id"]
-                        print("eWeLink authentication successful")
+                        print("✅ eWeLink authentication successful")
                         return True
                     else:
-                        print(f"eWeLink auth error: {data.get('msg', 'Unknown error')}")
+                        print(f"❌ eWeLink auth error: {data.get('msg', 'Unknown error')}")
                         return False
                 else:
-                    print(f"eWeLink auth failed: {response.status_code} - {response.text}")
+                    print(f"❌ eWeLink auth failed: {response.status_code} - {response.text}")
                     return False
                     
         except Exception as e:
-            print(f"eWeLink authentication error: {str(e)}")
+            print(f"❌ eWeLink authentication error: {str(e)}")
             return False
     
     async def get_devices(self) -> List[EWeLinkDevice]:
