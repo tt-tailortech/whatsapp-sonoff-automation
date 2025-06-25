@@ -21,6 +21,11 @@ class VoiceService:
         Returns the file path of the generated audio file
         """
         try:
+            # Check if we're in text-only mode (when ElevenLabs fails)
+            if hasattr(self, '_text_only_mode') and self._text_only_mode:
+                print("Text-only mode: Skipping voice generation")
+                return None
+            
             # Use default voice if none specified
             selected_voice_id = voice_id or self.voice_id
             
@@ -43,7 +48,14 @@ class VoiceService:
             return mp3_path
             
         except Exception as e:
-            print(f"Text-to-speech error: {str(e)}")
+            error_msg = str(e)
+            print(f"Text-to-speech error: {error_msg}")
+            
+            # If ElevenLabs is blocked, switch to text-only mode
+            if "Unusual activity detected" in error_msg or "Free Tier usage disabled" in error_msg:
+                print("ElevenLabs blocked - switching to text-only mode")
+                self._text_only_mode = True
+            
             return None
     
     async def convert_to_whatsapp_format(self, mp3_path: str) -> Optional[str]:
