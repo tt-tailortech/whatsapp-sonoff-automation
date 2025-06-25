@@ -15,6 +15,7 @@ class EWeLinkService:
         self.base_url = settings.ewelink_base_url
         self.access_token = None
         self.user_id = None
+        self._auth_attempted = False
     
     def _generate_signature(self, timestamp: str, nonce: str) -> str:
         """Generate signature for eWeLink API authentication"""
@@ -125,12 +126,29 @@ class EWeLinkService:
             print(f"Get devices error: {str(e)}")
             return []
     
+    async def _ensure_authenticated(self) -> bool:
+        """Ensure we're authenticated before making API calls"""
+        if self.access_token and self.user_id:
+            return True
+            
+        if self._auth_attempted:
+            return False
+            
+        # For now, we'll use app-based auth without user credentials
+        # This is a limitation - ideally we'd need actual user login
+        print("⚠️ eWeLink requires user authentication - device control disabled")
+        self._auth_attempted = True
+        return False
+
     async def control_device(self, device_id: str, command: str) -> bool:
         """
         Control a Sonoff device
         Commands: ON, OFF, BLINK
         """
         try:
+            if not await self._ensure_authenticated():
+                print(f"❌ eWeLink not authenticated - cannot control device {device_id}")
+                return False
             url = f"{self.base_url}/v2/device/thing/status"
             headers = self._get_auth_headers()
             

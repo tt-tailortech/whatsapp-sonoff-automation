@@ -7,7 +7,10 @@ class Settings(BaseSettings):
     
     # ElevenLabs Configuration
     elevenlabs_api_key: str
-    elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"  # Rachel voice
+    elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"
+    
+    # OpenAI Configuration (fallback TTS)
+    openai_api_key: str = ""  # Rachel voice
     
     # eWeLink Configuration
     ewelink_app_id: str
