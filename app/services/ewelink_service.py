@@ -19,36 +19,39 @@ class EWeLinkService:
         self.user_id = None
         self._auth_attempted = False
     
-    def _generate_signature(self, timestamp: str, nonce: str, body: str = "") -> str:
+    def _generate_signature(self, payload: dict) -> str:
         """Generate signature for eWeLink API authentication"""
-        # Try different signature formats
-        message = f"{self.app_id}_{timestamp}_{nonce}_{body}"
+        # Convert payload to compact JSON string (no spaces)
+        import json
+        json_payload = json.dumps(payload, separators=(',', ':')).encode()
+        
+        print(f"🔐 Signing JSON: {json_payload}")
+        print(f"🔐 Using secret: {self.app_secret[:10]}...")
+        
+        # Generate HMAC-SHA256 signature
         signature = hmac.new(
             self.app_secret.encode(),
-            message.encode(),
+            json_payload,
             hashlib.sha256
         ).digest()
-        return base64.b64encode(signature).decode()
-    
-    def _get_auth_headers(self) -> Dict[str, str]:
-        """Get authentication headers for API requests"""
-        timestamp = str(int(time.time() * 1000))
-        # Generate 8-character nonce properly
-        import random
-        import string
-        nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
-        signature = self._generate_signature(timestamp, nonce)
         
+        result = base64.b64encode(signature).decode()
+        print(f"🔐 Generated signature: {result}")
+        return result
+    
+    def _get_auth_headers(self, payload: dict = None) -> Dict[str, str]:
+        """Get authentication headers for API requests"""
         headers = {
-            "Content-Type": "application/json",
             "X-CK-Appid": self.app_id,
-            "X-CK-Timestamp": timestamp,
-            "X-CK-Nonce": nonce,
-            "X-CK-Signature": signature
         }
         
         if self.access_token:
             headers["Authorization"] = f"Bearer {self.access_token}"
+            headers["Content-Type"] = "application/json"
+        elif payload:
+            # For login requests, generate signature from payload
+            signature = self._generate_signature(payload)
+            headers["Authorization"] = f"Sign {signature}"
         
         return headers
     
@@ -58,53 +61,53 @@ class EWeLinkService:
         Note: For production, consider using app-based authentication
         """
         try:
-            url = f"{self.base_url}/v2/user/login"
+            # Try different regional endpoints
+            endpoints_to_try = [
+                f"{self.base_url}/v2/user/login",  # EU
+                "https://cn-apia.coolkit.cc/v2/user/login",  # CN
+                "https://as-apia.coolkit.cc/v2/user/login",  # AS  
+                "https://us-apia.coolkit.cc/v2/user/login",  # US
+            ]
             
+            # Try payload without countryCode first
             payload = {
                 "email": email,
-                "password": password,
-                "countryCode": "+1"  # Adjust based on your region
+                "password": password
             }
             
-            # Get headers without authorization token for login
-            timestamp = str(int(time.time() * 1000))
-            import random
-            import string
-            nonce = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
-            
-            signature = self._generate_signature(timestamp, nonce)
-            
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Sign {signature}",
-                "X-CK-Appid": self.app_id,
-                "X-CK-Timestamp": timestamp,
-                "X-CK-Nonce": nonce,
-                "X-CK-Signature": signature
-            }
-            
-            print(f"🔐 Login request headers: {headers}")
-            print(f"🔐 Login payload: {payload}")
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.post(url, headers=headers, json=payload)
+            # Try each endpoint until one works
+            for url in endpoints_to_try:
+                print(f"\n🔐 Trying endpoint: {url}")
                 
-                print(f"🔐 Response status: {response.status_code}")
-                print(f"🔐 Response text: {response.text}")
+                # Get headers with signature for login
+                headers = self._get_auth_headers(payload)
                 
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("error") == 0:
-                        self.access_token = data["data"]["at"]
-                        self.user_id = data["data"]["user"]["id"]
-                        print("✅ eWeLink authentication successful")
-                        return True
+                print(f"🔐 Login request headers: {headers}")
+                print(f"🔐 Login payload: {payload}")
+                
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(url, headers=headers, json=payload)
+                    
+                    print(f"🔐 Response status: {response.status_code}")
+                    print(f"🔐 Response text: {response.text}")
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("error") == 0:
+                            self.access_token = data["data"]["at"]
+                            self.user_id = data["data"]["user"]["id"]
+                            print("✅ eWeLink authentication successful")
+                            return True
+                        else:
+                            error_msg = data.get('msg', 'Unknown error')
+                            print(f"❌ eWeLink auth error: {error_msg}")
+                            # Continue to next endpoint
                     else:
-                        print(f"❌ eWeLink auth error: {data.get('msg', 'Unknown error')}")
-                        return False
-                else:
-                    print(f"❌ eWeLink auth failed: {response.status_code} - {response.text}")
-                    return False
+                        print(f"❌ eWeLink auth failed: {response.status_code} - {response.text}")
+                        # Continue to next endpoint
+            
+            print("❌ All endpoints failed")
+            return False
                     
         except Exception as e:
             print(f"❌ eWeLink authentication error: {str(e)}")
