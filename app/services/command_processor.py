@@ -13,7 +13,7 @@ class CommandProcessor:
         self.ewelink = ewelink_service
         
         # Valid commands
-        self.valid_commands = ["ON", "OFF", "BLINK", "STATUS"]
+        self.valid_commands = ["ON", "OFF", "BLINK", "STATUS", "ALARMA", "ALARM"]
         
         # Default device ID - will be set from environment or first device found
         self.default_device_id = None
@@ -54,6 +54,8 @@ class CommandProcessor:
             # Process specific commands
             if command == "STATUS":
                 await self._handle_status_command(message, device_id)
+            elif command in ["ALARMA", "ALARM"]:
+                await self._handle_alarm_command(message)
             else:
                 await self._handle_device_command(message, device_id, command)
                 
@@ -97,6 +99,77 @@ class CommandProcessor:
             print(f"Status command error: {str(e)}")
             await self._send_error_response(message, str(e))
     
+    async def _handle_alarm_command(self, message: WhatsAppMessage):
+        """Handle alarm activation command - turns ON all devices"""
+        try:
+            print(f"🚨 ALARM ACTIVATED by {message.contact_name or message.from_phone}!")
+            
+            # Get all devices
+            devices = await self.ewelink.get_devices()
+            
+            if not devices:
+                response_text = (
+                    f"¡ALERTA! {message.contact_name or 'Usuario'}, "
+                    f"recibí tu comando de alarma pero no hay dispositivos Sonoff disponibles. "
+                    f"Por favor verifica tu conexión eWeLink."
+                )
+                await self._send_voice_response(message.from_phone, response_text)
+                return
+            
+            # Activate all devices
+            success_count = 0
+            failed_devices = []
+            
+            for device in devices:
+                print(f"🔴➡️🔵 Activating alarm device: {device.name}")
+                success = await self.ewelink.control_device(device.deviceid, "ON")
+                
+                if success:
+                    success_count += 1
+                    print(f"✅ {device.name} activated")
+                else:
+                    failed_devices.append(device.name)
+                    print(f"❌ {device.name} failed")
+            
+            # Generate response based on results
+            if success_count == len(devices):
+                response_text = (
+                    f"¡ALARMA ACTIVADA! {message.contact_name or 'Usuario'}, "
+                    f"he encendido todos los {len(devices)} dispositivos Sonoff. "
+                    f"El sistema de alarma está completamente activo. "
+                    f"Todos los dispositivos han respondido correctamente."
+                )
+            elif success_count > 0:
+                response_text = (
+                    f"¡ALARMA PARCIALMENTE ACTIVADA! {message.contact_name or 'Usuario'}, "
+                    f"he activado {success_count} de {len(devices)} dispositivos. "
+                    f"Algunos dispositivos pueden estar desconectados: {', '.join(failed_devices)}. "
+                    f"Verifica la conexión de los dispositivos que fallaron."
+                )
+            else:
+                response_text = (
+                    f"¡ERROR DE ALARMA! {message.contact_name or 'Usuario'}, "
+                    f"no pude activar ningún dispositivo. "
+                    f"Todos los dispositivos están desconectados o hay problemas de conexión. "
+                    f"Verifica tu conexión eWeLink inmediatamente."
+                )
+            
+            # Send voice response
+            await self._send_voice_response(message.from_phone, response_text)
+            
+            # Log alarm activation
+            print(f"🚨 Alarm summary: {success_count}/{len(devices)} devices activated")
+            
+        except Exception as e:
+            print(f"Alarm command error: {str(e)}")
+            error_response = (
+                f"¡ERROR CRÍTICO! {message.contact_name or 'Usuario'}, "
+                f"ocurrió un error al activar la alarma. "
+                f"El sistema puede estar comprometido. "
+                f"Verifica manualmente los dispositivos."
+            )
+            await self._send_voice_response(message.from_phone, error_response)
+    
     async def _send_voice_response(self, phone_number: str, text: str):
         """Generate and send voice message response"""
         try:
@@ -137,7 +210,8 @@ class CommandProcessor:
             f"Hola {message.contact_name or 'usuario'}. "
             f"No reconozco el comando '{invalid_command}'. "
             f"Los comandos disponibles son: ON para encender, OFF para apagar, "
-            f"BLINK para modo parpadeo, y STATUS para ver el estado. "
+            f"BLINK para modo parpadeo, STATUS para ver el estado, "
+            f"y ALARMA para activar todos los dispositivos. "
             f"Por favor envía uno de estos comandos."
         )
         await self._send_voice_response(message.from_phone, response_text)
@@ -170,6 +244,8 @@ class CommandProcessor:
             return f"¡Listo {name}! He apagado el dispositivo correctamente. El LED ya está apagado."
         elif command == "BLINK":
             return f"¡Excelente {name}! He activado el modo parpadeo en el dispositivo. El LED ahora está parpadeando."
+        elif command in ["ALARMA", "ALARM"]:
+            return f"¡ALARMA ACTIVADA {name}! Todos los dispositivos han sido encendidos. El sistema está activo."
         else:
             return f"¡Comando ejecutado correctamente {name}!"
     
