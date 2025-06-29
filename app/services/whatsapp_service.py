@@ -239,15 +239,26 @@ class WhatsAppService:
     
     async def send_voice_message(self, phone_number: str, audio_file_path: str) -> bool:
         """
-        Send a voice message via WhatsApp using WHAPI.cloud API
+        Send a voice message via WhatsApp using WHAPI.cloud API (Base64 method)
         """
         try:
+            if not os.path.exists(audio_file_path):
+                print(f"❌ Audio file not found: {audio_file_path}")
+                return False
+            
+            file_size = os.path.getsize(audio_file_path)
             url = f"{self.base_url}/messages/voice"
+            
+            print(f"🎤 Sending voice message (Base64) to {phone_number}")
+            print(f"   File: {audio_file_path} ({file_size} bytes)")
+            print(f"   URL: {url}")
             
             # Read audio file and encode as base64
             with open(audio_file_path, "rb") as audio_file:
                 audio_data = audio_file.read()
                 audio_base64 = base64.b64encode(audio_data).decode()
+            
+            print(f"   Base64 length: {len(audio_base64)} characters")
             
             # Correct payload format based on WHAPI.cloud documentation
             payload = {
@@ -255,18 +266,29 @@ class WhatsAppService:
                 "voice": f"data:audio/ogg;base64,{audio_base64}"
             }
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(url, headers=self.headers, json=payload)
-                
-                if response.status_code == 200:
-                    print(f"✅ Voice message sent to {phone_number}")
-                    return True
-                else:
-                    print(f"❌ Failed to send voice message: {response.status_code} - {response.text}")
-                    return False
+            print(f"🎤 Payload: {{'to': '{phone_number}', 'voice': 'data:audio/ogg;base64,[{len(audio_base64)} chars]'}}")
+            print(f"🎤 Headers: {self.headers}")
+            
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(url, headers=self.headers, json=payload)
+                    
+                    print(f"🎤 Response status: {response.status_code}")
+                    print(f"🎤 Response body: {response.text}")
+                    
+                    if response.status_code == 200:
+                        print(f"✅ Voice message sent via Base64 to {phone_number}")
+                        return True
+                    else:
+                        print(f"❌ Failed to send voice message via Base64: {response.status_code}")
+                        return False
+            except Exception as http_err:
+                print(f"❌ HTTP request failed: {str(http_err)}")
+                print(f"❌ HTTP error type: {type(http_err)}")
+                raise http_err
                     
         except Exception as e:
-            print(f"Send voice message error: {str(e)}")
+            print(f"❌ Send voice message error (Base64): {str(e)} | File: {audio_file_path}")
             return False
     
     async def send_voice_message_with_file_upload(self, phone_number: str, audio_file_path: str) -> bool:
@@ -274,35 +296,57 @@ class WhatsAppService:
         Alternative method: Send voice message using multipart file upload
         """
         try:
+            if not os.path.exists(audio_file_path):
+                print(f"❌ Audio file not found: {audio_file_path}")
+                return False
+            
+            file_size = os.path.getsize(audio_file_path)
             url = f"{self.base_url}/messages/voice"
+            
+            print(f"🎤 Sending voice message (File Upload) to {phone_number}")
+            print(f"   File: {audio_file_path} ({file_size} bytes)")
+            print(f"   URL: {url}")
+            
+            # Remove Content-Type header for multipart
+            headers = {
+                "Authorization": f"Bearer {self.token}"
+            }
+            
+            data = {
+                "to": phone_number
+            }
+            
+            print(f"🎤 Data: {data}")
+            print(f"🎤 Headers: {headers}")
             
             # Prepare multipart form data
             with open(audio_file_path, "rb") as audio_file:
                 files = {
-                    "voice": ("voice.ogg", audio_file, "audio/ogg; codecs=opus")
+                    "voice": ("voice.ogg", audio_file.read(), "audio/ogg; codecs=opus")
                 }
                 
-                data = {
-                    "to": phone_number
-                }
+                print(f"🎤 Files: voice file ({len(files['voice'][1])} bytes)")
                 
-                # Remove Content-Type header for multipart
-                headers = {
-                    "Authorization": f"Bearer {self.token}"
-                }
-                
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    response = await client.post(url, headers=headers, data=data, files=files)
-                    
-                    if response.status_code == 200:
-                        print(f"✅ Voice message sent via upload to {phone_number}")
-                        return True
-                    else:
-                        print(f"❌ Failed to send voice message via upload: {response.status_code} - {response.text}")
-                        return False
+                try:
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        response = await client.post(url, headers=headers, data=data, files=files)
+                        
+                        print(f"🎤 Response status: {response.status_code}")
+                        print(f"🎤 Response body: {response.text}")
+                        
+                        if response.status_code == 200:
+                            print(f"✅ Voice message sent via File Upload to {phone_number}")
+                            return True
+                        else:
+                            print(f"❌ Failed to send voice message via File Upload: {response.status_code}")
+                            return False
+                except Exception as http_err:
+                    print(f"❌ HTTP request failed: {str(http_err)}")
+                    print(f"❌ HTTP error type: {type(http_err)}")
+                    raise http_err
                         
         except Exception as e:
-            print(f"Send voice message via upload error: {str(e)}")
+            print(f"❌ Send voice message error (File Upload): {str(e)} | File: {audio_file_path}")
             return False
     
     async def get_account_info(self) -> Dict[str, Any]:
