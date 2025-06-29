@@ -50,7 +50,7 @@ class WhatsAppService:
                         contact_name=message.get("from_name", "Usuario"),
                         timestamp=str(message.get("timestamp", ""))
                     )
-                    
+                
                 # Return None for non-text messages in direct format
                 return None
             
