@@ -43,6 +43,7 @@ class WhatsAppService:
                                 return WhatsAppMessage(
                                     id=message.get("id", ""),
                                     from_phone=message.get("from", ""),
+                                    chat_id=message.get("chat_id", ""),
                                     text=message.get("text", {}).get("body", "") if isinstance(message.get("text"), dict) else message.get("text", ""),
                                     contact_name=message.get("from_name", "Usuario"),
                                     timestamp=str(message.get("timestamp", ""))
@@ -61,6 +62,7 @@ class WhatsAppService:
                                 return WhatsAppMessage(
                                     id=message.get("id", ""),
                                     from_phone=message.get("from", ""),
+                                    chat_id=message.get("chat_id", ""),
                                     text=message.get("text", {}).get("body", "") if isinstance(message.get("text"), dict) else message.get("text", ""),
                                     contact_name=message.get("from_name", "Usuario"),
                                     timestamp=str(message.get("timestamp", ""))
@@ -75,6 +77,7 @@ class WhatsAppService:
                     return WhatsAppMessage(
                         id=message.get("id", ""),
                         from_phone=message.get("from", ""),
+                        chat_id=message.get("chat_id", ""),
                         text=message.get("text", {}).get("body", ""),
                         contact_name=payload.get("contacts", [{}])[0].get("profile", {}).get("name"),
                         timestamp=message.get("timestamp", "")
@@ -97,6 +100,7 @@ class WhatsAppService:
                         return WhatsAppMessage(
                             id=message.get("id", ""),
                             from_phone=message.get("from", ""),
+                            chat_id=message.get("chat_id", ""),
                             text=message.get("text", {}).get("body", ""),
                             contact_name=contact.get("profile", {}).get("name"),
                             timestamp=message.get("timestamp", "")

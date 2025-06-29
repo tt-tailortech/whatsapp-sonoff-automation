@@ -72,7 +72,7 @@ class CommandProcessor:
             if blink_success:
                 # Send success message to WhatsApp
                 response_text = "EL SENSOR HA SIDO ACTIVADO, POR FAVOR DESPETRENSE TODOS"
-                await self._send_text_message(message.from_phone, response_text)
+                await self._send_text_message(message.chat_id, response_text)
                 print("✅ TEST command completed successfully")
             else:
                 print("❌ Blink pattern failed")

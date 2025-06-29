@@ -5,9 +5,10 @@ from datetime import datetime
 class WhatsAppMessage(BaseModel):
     id: str
     from_phone: str
+    chat_id: str  # The WhatsApp chat ID (e.g., 56927713165@s.whatsapp.net)
     text: str
     contact_name: Optional[str] = None
-    timestamp: datetime
+    timestamp: str  # Keep as string to avoid parsing issues
 
 class DeviceCommand(BaseModel):
     command: str
