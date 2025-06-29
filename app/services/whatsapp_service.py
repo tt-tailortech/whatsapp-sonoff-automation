@@ -2,6 +2,7 @@ import os
 import httpx
 import base64
 import time
+import asyncio
 from typing import Optional, Dict, Any
 from app.config import settings
 from app.models import WhatsAppMessage
@@ -16,6 +17,9 @@ class WhatsAppService:
         }
         self.processed_message_ids = set()  # Track processed message IDs
         self.max_processed_ids = 1000  # Limit to prevent memory issues
+        
+        # Initialize Group Manager (lazy loading to avoid circular imports)
+        self.group_manager = None
     
     def parse_whatsapp_webhook(self, payload: Dict[str, Any]) -> Optional[WhatsAppMessage]:
         """
@@ -261,12 +265,43 @@ class WhatsAppService:
             print("❌ No valid message format found in webhook payload")
             return None
             
-            print("❌ No valid incoming message found in webhook payload")
-            return None
-            
         except Exception as e:
             print(f"WhatsApp webhook parsing error: {str(e)}")
             return None
+    
+    async def process_group_management(self, message: WhatsAppMessage) -> bool:
+        """
+        Process group management - ensure group folder exists for group messages
+        """
+        try:
+            # Only process group messages
+            if not message.chat_id.endswith("@g.us"):
+                return True  # Individual messages don't need group management
+            
+            # Lazy load group manager to avoid circular imports
+            if self.group_manager is None:
+                from app.services.group_manager_service import GroupManagerService
+                self.group_manager = GroupManagerService()
+            
+            # Ensure group folder exists
+            print(f"🏘️ Processing group management for: {message.chat_name}")
+            result = await self.group_manager.ensure_group_folder_exists(
+                group_chat_id=message.chat_id,
+                group_name=message.chat_name or "Unknown Group",
+                sender_phone=message.from_phone,
+                sender_name=message.contact_name or "Unknown User"
+            )
+            
+            if result:
+                print(f"✅ Group management completed for: {message.chat_name}")
+                return True
+            else:
+                print(f"⚠️ Group management failed for: {message.chat_name}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Group management error: {str(e)}")
+            return False
     
     async def send_text_message(self, phone_number: str, message: str) -> bool:
         """

@@ -30,7 +30,10 @@ class CommandProcessor:
             
             print(f"Processing message from {message.contact_name or message.from_phone}: {message.text}")
             
-            # Process the command
+            # First, handle group management (ensure group folders exist for group messages)
+            await self.whatsapp.process_group_management(message)
+            
+            # Then process the command
             await self._process_command(message)
             
         except Exception as e:
