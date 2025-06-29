@@ -281,12 +281,14 @@ class EWeLinkService:
                         
                         devices = []
                         for device_data in thing_list:
+                            # Extract device info from nested structure
+                            item_data = device_data.get("itemData", {})
                             device = EWeLinkDevice(
-                                deviceid=device_data.get("deviceid", ""),
-                                name=device_data.get("name", ""),
-                                type=device_data.get("productModel", ""),
-                                online=device_data.get("online", False),
-                                params=device_data.get("params", {})
+                                deviceid=item_data.get("deviceid", ""),
+                                name=item_data.get("name", ""),
+                                type=item_data.get("productModel", ""),
+                                online=item_data.get("online", False),
+                                params=item_data.get("params", {})
                             )
                             devices.append(device)
                             print(f"✅ Found device: {device.name} (ID: {device.deviceid})")
@@ -356,7 +358,7 @@ class EWeLinkService:
                     params = {"switch": "on"}
             
             payload = {
-                "type": "1",
+                "type": 1,
                 "id": device_id,
                 "params": params
             }
@@ -387,7 +389,7 @@ class EWeLinkService:
             headers = self._get_auth_headers()
             
             params = {
-                "type": "1",
+                "type": 1,
                 "id": device_id
             }
             

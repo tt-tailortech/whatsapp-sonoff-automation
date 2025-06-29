@@ -15,10 +15,10 @@ class Settings(BaseSettings):
     # eWeLink Configuration
     ewelink_app_id: str = "McFJj4Noke1mGDZCR1QarGW7rtDv00Zs"
     ewelink_app_secret: str = "6Nz4n0xA8s8qdxQf2GqurZj2Fs55FUvM"
-    ewelink_base_url: str = "https://cn-apia.coolkit.cn"  # China region based on CORS error investigation
+    ewelink_base_url: str = "https://us-apia.coolkit.cc"  # US region - confirmed working
     ewelink_email: str = "tt.tailortech@gmail.com"
     ewelink_password: str = "Qwerty.2025"
-    ewelink_access_token: str = ""  # Set via EWELINK_ACCESS_TOKEN env var
+    ewelink_access_token: str = "73d1a52ee534403fcfe294d0b5a26504dbd5bd8a"  # Working token from browser
     
     # Application Configuration
     host: str = "0.0.0.0"
