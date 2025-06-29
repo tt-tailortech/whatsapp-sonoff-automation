@@ -16,9 +16,17 @@ try:
     from app.models import WhatsAppWebhookPayload
     from app.services.whatsapp_service import WhatsAppService
     from app.services.voice_service import VoiceService  # Re-enabled with OpenAI only
-    from app.services.image_service import ImageService  # For image processing and sending
     from app.services.ewelink_service import EWeLinkService
     from app.services.command_processor import CommandProcessor
+    
+    # Try to import image service (might fail if Pillow not available)
+    try:
+        from app.services.image_service import ImageService
+        IMAGE_SERVICE_AVAILABLE = True
+    except ImportError as e:
+        print(f"⚠️ ImageService not available: {str(e)}")
+        IMAGE_SERVICE_AVAILABLE = False
+        ImageService = None
 
     # Create temp audio directory
     os.makedirs(settings.temp_audio_dir, exist_ok=True)
@@ -40,7 +48,7 @@ try:
     # Initialize services
     whatsapp_service = WhatsAppService()
     voice_service = VoiceService()  # Re-enabled
-    image_service = ImageService()  # For image processing
+    image_service = ImageService() if IMAGE_SERVICE_AVAILABLE else None  # For image processing
     ewelink_service = EWeLinkService()
     command_processor = CommandProcessor(whatsapp_service, ewelink_service)
     
@@ -53,6 +61,7 @@ except Exception as e:
     image_service = None  # For image processing
     ewelink_service = None
     command_processor = None
+    IMAGE_SERVICE_AVAILABLE = False
 
 @app.get("/")
 async def root():
@@ -333,7 +342,8 @@ async def test_image_endpoint():
     return JSONResponse(content={
         "status": "success",
         "message": "Image endpoint is working!",
-        "image_service_available": image_service is not None,
+        "image_service_available": IMAGE_SERVICE_AVAILABLE,
+        "image_service_instance": image_service is not None,
         "pillow_available": pillow_available,
         "pillow_error": pillow_error,
         "services_initialized": SERVICES_INITIALIZED
@@ -346,8 +356,14 @@ async def send_emergency_alert_image():
         if not SERVICES_INITIALIZED:
             return JSONResponse(content={"status": "error", "message": "Services not initialized"}, status_code=503)
         
-        if not image_service or not whatsapp_service:
-            return JSONResponse(content={"status": "error", "message": "Image or WhatsApp service not available"}, status_code=503)
+        if not IMAGE_SERVICE_AVAILABLE or not whatsapp_service:
+            return JSONResponse(content={
+                "status": "error", 
+                "message": "Image service not available - Pillow dependency missing",
+                "image_service_available": IMAGE_SERVICE_AVAILABLE,
+                "whatsapp_service_available": whatsapp_service is not None,
+                "note": "Install Pillow dependency to enable image sending"
+            }, status_code=503)
         
         # Use the professional emergency alert image
         local_image_path = "./emergency_alert_professional.jpg"
