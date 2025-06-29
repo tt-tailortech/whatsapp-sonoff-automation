@@ -18,6 +18,11 @@ class WhatsAppService:
         self.processed_message_ids = set()  # Track processed message IDs
         self.max_processed_ids = 1000  # Limit to prevent memory issues
         
+        # DEVELOPMENT MODE: Allow processing own messages for testing
+        self.development_mode = os.getenv("DEVELOPMENT_MODE", "true").lower() == "true"
+        if self.development_mode:
+            print("🔧 DEVELOPMENT MODE ENABLED - Processing own messages for testing")
+        
         # Initialize Group Manager (lazy loading to avoid circular imports)
         self.group_manager = None
     
@@ -43,10 +48,12 @@ class WhatsAppService:
                 print(f"📨 Direct message found: {message}")
                 
                 # Only process incoming messages (from_me: False means it's TO us)
-                # If from_me: True, it means we sent it, so ignore
-                if message.get("from_me", True):
+                # If from_me: True, it means we sent it, so ignore (UNLESS in development mode)
+                if message.get("from_me", True) and not self.development_mode:
                     print(f"📨 Ignoring outgoing message (from_me: True)")
                     return None
+                elif message.get("from_me", True) and self.development_mode:
+                    print(f"🔧 DEVELOPMENT MODE: Processing own message for testing")
                 
                 if message.get("type") == "text":
                     message_id = message.get("id", "")
@@ -103,10 +110,12 @@ class WhatsAppService:
                             message = after_update["last_message"]
                             print(f"📨 Chat update message: {message}")
                             
-                            # Only process incoming messages
-                            if message.get("from_me", True):
+                            # Only process incoming messages (UNLESS in development mode)
+                            if message.get("from_me", True) and not self.development_mode:
                                 print(f"📨 Ignoring chat update outgoing message")
                                 continue
+                            elif message.get("from_me", True) and self.development_mode:
+                                print(f"🔧 DEVELOPMENT MODE: Processing own chat update message for testing")
                                 
                             if message.get("type") == "text":
                                 message_id = message.get("id", "")
