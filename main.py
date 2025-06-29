@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 
 # Create app first
 app = FastAPI(
-    title="WhatsApp-Sonoff Voice Automation",
-    description="Voice-enabled WhatsApp automation for Sonoff device control",
+    title="WhatsApp-Sonoff TEST Automation",
+    description="WhatsApp TEST command automation for Sonoff device control",
     version="1.0.0"
 )
 
@@ -15,7 +15,7 @@ try:
     from app.config import settings
     from app.models import WhatsAppWebhookPayload
     from app.services.whatsapp_service import WhatsAppService
-    from app.services.voice_service import VoiceService
+    # from app.services.voice_service import VoiceService  # Removed
     from app.services.ewelink_service import EWeLinkService
     from app.services.command_processor import CommandProcessor
 
@@ -24,22 +24,22 @@ try:
 
     # Initialize services
     whatsapp_service = WhatsAppService()
-    voice_service = VoiceService()
+    # voice_service = VoiceService()  # Removed
     ewelink_service = EWeLinkService()
-    command_processor = CommandProcessor(whatsapp_service, voice_service, ewelink_service)
+    command_processor = CommandProcessor(whatsapp_service, ewelink_service)
     
     SERVICES_INITIALIZED = True
 except Exception as e:
     print(f"Service initialization error: {str(e)}")
     SERVICES_INITIALIZED = False
     whatsapp_service = None
-    voice_service = None
+    # voice_service = None  # Removed
     ewelink_service = None
     command_processor = None
 
 @app.get("/")
 async def root():
-    return {"message": "WhatsApp-Sonoff Voice Automation System", "status": "running"}
+    return {"message": "WhatsApp-Sonoff TEST Automation System", "status": "running"}
 
 @app.get("/health")
 async def health_check():

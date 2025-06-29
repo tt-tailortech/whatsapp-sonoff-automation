@@ -4,10 +4,11 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 requests==2.31.0
 python-dotenv==1.0.0
-elevenlabs==0.2.27
+# elevenlabs==0.2.27  # Removed - no voice for now
 pydub==0.25.1
 httpx==0.25.2
 pytest==7.4.3
 pytest-asyncio==0.21.1
 python-multipart==0.0.6
 aiofiles==23.2.1
+websockets==12.0
