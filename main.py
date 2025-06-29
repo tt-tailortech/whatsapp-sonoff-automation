@@ -10,6 +10,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Ultra basic test - BEFORE any imports
+@app.get("/emergency-test")
+async def emergency_test():
+    return {"message": "EMERGENCY TEST WORKS", "time": "now"}
+
 # Initialize services with error handling
 try:
     from app.config import settings
