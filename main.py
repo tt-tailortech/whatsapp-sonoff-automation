@@ -328,6 +328,11 @@ async def whapi_debug():
             "message": f"Debug failed: {str(e)}"
         }, status_code=500)
 
+@app.get("/simple-test")
+async def simple_test():
+    """Ultra simple test endpoint"""
+    return {"message": "Simple test works!", "timestamp": "2024"}
+
 @app.get("/test-image-endpoint")
 async def test_image_endpoint():
     """Simple test to check if image endpoint works"""
