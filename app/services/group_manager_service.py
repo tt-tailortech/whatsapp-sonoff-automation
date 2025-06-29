@@ -25,15 +25,29 @@ class GroupManagerService:
     def _initialize_google_drive(self):
         """Initialize Google Drive API connection"""
         try:
-            credentials_path = "./google_drive_credentials.json"
-            if not os.path.exists(credentials_path):
-                print("❌ Google Drive credentials not found")
-                return False
+            # Try environment variable first (for Render deployment)
+            credentials_json = os.getenv("GOOGLE_DRIVE_CREDENTIALS")
             
-            credentials = service_account.Credentials.from_service_account_file(
-                credentials_path,
-                scopes=['https://www.googleapis.com/auth/drive']
-            )
+            if credentials_json:
+                print("✅ Using Google Drive credentials from environment variable")
+                import json
+                credentials_info = json.loads(credentials_json)
+                credentials = service_account.Credentials.from_service_account_info(
+                    credentials_info,
+                    scopes=['https://www.googleapis.com/auth/drive']
+                )
+            else:
+                # Fallback to local file (for local development)
+                credentials_path = "./google_drive_credentials.json"
+                if not os.path.exists(credentials_path):
+                    print("❌ Google Drive credentials not found in environment or file")
+                    return False
+                
+                print("✅ Using Google Drive credentials from local file")
+                credentials = service_account.Credentials.from_service_account_file(
+                    credentials_path,
+                    scopes=['https://www.googleapis.com/auth/drive']
+                )
             
             self.service = build('drive', 'v3', credentials=credentials)
             
