@@ -641,6 +641,64 @@ class WhatsAppService:
         except Exception as e:
             print(f"❌ Send image message error (n8n style): {str(e)} | File: {image_file_path}")
             return False
+    
+    async def send_gif_message(self, phone_number: str, gif_file_path: str, caption: str = "") -> bool:
+        """
+        Send an animated GIF message via WhatsApp using WHAPI.cloud API
+        """
+        try:
+            if not os.path.exists(gif_file_path):
+                print(f"❌ GIF file not found: {gif_file_path}")
+                return False
+            
+            file_size = os.path.getsize(gif_file_path)
+            url = f"{self.base_url}/messages/gif"
+            
+            print(f"🎬 Sending GIF message (Base64) to {phone_number}")
+            print(f"   File: {gif_file_path} ({file_size} bytes)")
+            print(f"   Caption: {caption}")
+            print(f"   URL: {url}")
+            
+            # Read GIF file and encode as base64
+            with open(gif_file_path, "rb") as gif_file:
+                gif_data = gif_file.read()
+                gif_base64 = base64.b64encode(gif_data).decode()
+            
+            print(f"   Base64 length: {len(gif_base64)} characters")
+            
+            # Payload format for GIF messages
+            payload = {
+                "to": phone_number,
+                "media": f"data:image/gif;base64,{gif_base64}"
+            }
+            
+            if caption:
+                payload["caption"] = caption
+            
+            print(f"🎬 Payload: {{'to': '{phone_number}', 'media': 'data:image/gif;base64,[{len(gif_base64)} chars]', 'caption': '{caption}'}}")
+            print(f"🎬 Headers: {self.headers}")
+            
+            try:
+                async with httpx.AsyncClient(timeout=60.0) as client:  # Longer timeout for GIFs
+                    response = await client.post(url, headers=self.headers, json=payload)
+                    
+                    print(f"🎬 Response status: {response.status_code}")
+                    print(f"🎬 Response body: {response.text}")
+                    
+                    if response.status_code == 200:
+                        print(f"✅ GIF message sent via Base64 to {phone_number}")
+                        return True
+                    else:
+                        print(f"❌ Failed to send GIF message via Base64: {response.status_code}")
+                        return False
+            except Exception as http_err:
+                print(f"❌ HTTP request failed: {str(http_err)}")
+                print(f"❌ HTTP error type: {type(http_err)}")
+                raise http_err
+                    
+        except Exception as e:
+            print(f"❌ Send GIF message error (Base64): {str(e)} | File: {gif_file_path}")
+            return False
 
     async def get_account_info(self) -> Dict[str, Any]:
         """

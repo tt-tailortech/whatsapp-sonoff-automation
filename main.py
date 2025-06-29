@@ -453,6 +453,65 @@ async def send_emergency_alert_image():
             "message": f"Emergency alert failed: {str(e)}"
         }, status_code=500)
 
+@app.get("/send-animated-siren")
+async def send_animated_siren():
+    """Send animated siren GIF to Waldo"""
+    try:
+        if not SERVICES_INITIALIZED:
+            return JSONResponse(content={"status": "error", "message": "Services not initialized"}, status_code=503)
+        
+        if not whatsapp_service:
+            return JSONResponse(content={"status": "error", "message": "WhatsApp service not available"}, status_code=503)
+        
+        # Create animated siren if it doesn't exist
+        gif_path = "./animated_emergency_siren.gif"
+        
+        if not os.path.exists(gif_path):
+            try:
+                from create_animated_siren import create_animated_siren_gif
+                create_animated_siren_gif()
+                print(f"✅ Created animated siren GIF: {gif_path}")
+            except Exception as e:
+                return JSONResponse(content={
+                    "status": "error",
+                    "message": f"Failed to create animated siren: {str(e)}"
+                })
+        
+        phone_number = "56940035815"  # Waldo's number
+        caption = "🚨 ALERTA ANIMADA - Sistema de emergencia activado 🚨"
+        
+        print(f"🎬 Sending animated siren GIF to: {phone_number}")
+        print(f"🏷️ Caption: {caption}")
+        print(f"📂 GIF: {gif_path}")
+        
+        # Send GIF via WhatsApp
+        success = await whatsapp_service.send_gif_message(phone_number, gif_path, caption)
+        
+        if success:
+            return JSONResponse(content={
+                "status": "success",
+                "message": "Animated siren GIF sent successfully!",
+                "phone_number": phone_number,
+                "caption": caption,
+                "gif_file": gif_path,
+                "type": "animated_gif"
+            })
+        else:
+            return JSONResponse(content={
+                "status": "error",
+                "message": "Failed to send animated siren GIF",
+                "phone_number": phone_number,
+                "gif_file": gif_path,
+                "note": "Check server logs for detailed WHAPI API responses"
+            })
+        
+    except Exception as e:
+        print(f"❌ Animated siren sending error: {str(e)}")
+        return JSONResponse(content={
+            "status": "error", 
+            "message": f"Animated siren failed: {str(e)}"
+        }, status_code=500)
+
 @app.post("/send-image-from-file")
 async def send_image_from_file(request: Request):
     """Send image from uploaded file or local path"""
