@@ -42,12 +42,11 @@ class WhatsAppService:
                 message = payload["messages"][0]
                 print(f"📨 Direct message found: {message}")
                 
-                # Temporarily allow our own messages for testing group management
                 # Only process incoming messages (from_me: False means it's TO us)
                 # If from_me: True, it means we sent it, so ignore
                 if message.get("from_me", True):
-                    print(f"📨 TESTING MODE: Processing our own message for group management testing")
-                    # return None  # Commented out for testing
+                    print(f"📨 Ignoring outgoing message (from_me: True)")
+                    return None
                 
                 if message.get("type") == "text":
                     message_id = message.get("id", "")
@@ -104,10 +103,10 @@ class WhatsAppService:
                             message = after_update["last_message"]
                             print(f"📨 Chat update message: {message}")
                             
-                            # Temporarily allow our own messages for testing
+                            # Only process incoming messages
                             if message.get("from_me", True):
-                                print(f"📨 TESTING MODE: Processing our own chat update message")
-                                # continue  # Commented out for testing
+                                print(f"📨 Ignoring chat update outgoing message")
+                                continue
                                 
                             if message.get("type") == "text":
                                 message_id = message.get("id", "")
