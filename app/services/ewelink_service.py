@@ -261,14 +261,12 @@ class EWeLinkService:
             url = f"{self.base_url}/v2/device/thing"
             headers = self._get_auth_headers()
             
-            params = {
-                "lang": "en",
-                "num": 30,
-                "beginIndex": 0
-            }
+            # Don't use params - our direct tests worked without them
+            print(f"🔍 Getting devices from: {url}")
+            print(f"🔑 Using token: {self.access_token[:20] if self.access_token else 'None'}...")
             
             async with httpx.AsyncClient() as client:
-                response = await client.get(url, headers=headers, params=params)
+                response = await client.get(url, headers=headers)
                 
                 if response.status_code == 200:
                     data = response.json()
