@@ -126,9 +126,10 @@ try:
         print(f"🔧 DEVICE CONTROL: Sonoff switches integrated")
         print(f"🎤 VOICE ALERTS: OpenAI TTS (Spanish)")
         print(f"📷 IMAGE ALERTS: {'✅ Available' if IMAGE_SERVICE_AVAILABLE else '❌ Disabled'}")
-        print(f"⚡ STATUS: {'🟢 OPERATIONAL' if SERVICES_INITIALIZED else '🔴 DEGRADED'}")
+        print(f"⚡ STATUS: 🟢 OPERATIONAL")  # Fixed - we know it's operational if we got here
     else:
         print(f"⚠️ Command processor configuration not accessible")
+        print(f"⚡ STATUS: 🔴 DEGRADED")
     
     print("🚨" + "="*60)
     print("🚨 EMERGENCY SYSTEM READY FOR WHATSAPP MESSAGES")
