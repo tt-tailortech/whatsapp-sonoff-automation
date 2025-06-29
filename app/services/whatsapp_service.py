@@ -441,6 +441,207 @@ class WhatsAppService:
             print(f"❌ Send voice message error (Upload Media): {str(e)} | File: {audio_file_path}")
             return False
     
+    async def send_image_message(self, phone_number: str, image_file_path: str, caption: str = "") -> bool:
+        """
+        Send an image message via WhatsApp using WHAPI.cloud API (Base64 method)
+        """
+        try:
+            if not os.path.exists(image_file_path):
+                print(f"❌ Image file not found: {image_file_path}")
+                return False
+            
+            file_size = os.path.getsize(image_file_path)
+            url = f"{self.base_url}/messages/image"
+            
+            print(f"📷 Sending image message (Base64) to {phone_number}")
+            print(f"   File: {image_file_path} ({file_size} bytes)")
+            print(f"   Caption: {caption}")
+            print(f"   URL: {url}")
+            
+            # Read image file and encode as base64
+            with open(image_file_path, "rb") as image_file:
+                image_data = image_file.read()
+                image_base64 = base64.b64encode(image_data).decode()
+            
+            print(f"   Base64 length: {len(image_base64)} characters")
+            
+            # Determine MIME type based on file extension
+            file_ext = os.path.splitext(image_file_path)[1].lower()
+            mime_types = {
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg', 
+                '.png': 'image/png',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp'
+            }
+            mime_type = mime_types.get(file_ext, 'image/jpeg')
+            
+            # Payload format for image messages (following WHAPI.cloud pattern)
+            payload = {
+                "to": phone_number,
+                "media": f"data:{mime_type};base64,{image_base64}"
+            }
+            
+            if caption:
+                payload["caption"] = caption
+            
+            print(f"📷 Payload: {{'to': '{phone_number}', 'media': 'data:{mime_type};base64,[{len(image_base64)} chars]', 'type': 'image', 'caption': '{caption}'}}")
+            print(f"📷 Headers: {self.headers}")
+            
+            try:
+                async with httpx.AsyncClient(timeout=60.0) as client:  # Longer timeout for images
+                    response = await client.post(url, headers=self.headers, json=payload)
+                    
+                    print(f"📷 Response status: {response.status_code}")
+                    print(f"📷 Response body: {response.text}")
+                    
+                    if response.status_code == 200:
+                        print(f"✅ Image message sent via Base64 to {phone_number}")
+                        return True
+                    else:
+                        print(f"❌ Failed to send image message via Base64: {response.status_code}")
+                        return False
+            except Exception as http_err:
+                print(f"❌ HTTP request failed: {str(http_err)}")
+                print(f"❌ HTTP error type: {type(http_err)}")
+                raise http_err
+                    
+        except Exception as e:
+            print(f"❌ Send image message error (Base64): {str(e)} | File: {image_file_path}")
+            return False
+    
+    async def send_image_message_via_media_endpoint(self, phone_number: str, image_file_path: str, caption: str = "") -> bool:
+        """
+        Alternative method: Send image via /messages/media/image endpoint
+        """
+        try:
+            if not os.path.exists(image_file_path):
+                print(f"❌ Image file not found: {image_file_path}")
+                return False
+            
+            file_size = os.path.getsize(image_file_path)
+            url = f"{self.base_url}/messages/media/image"
+            
+            print(f"📷 Sending image message (Media Endpoint) to {phone_number}")
+            print(f"   File: {image_file_path} ({file_size} bytes)")
+            print(f"   Caption: {caption}")
+            print(f"   URL: {url}")
+            
+            # Remove Content-Type header for multipart
+            headers = {
+                "Authorization": f"Bearer {self.token}"
+            }
+            
+            data = {
+                "to": phone_number
+            }
+            
+            if caption:
+                data["caption"] = caption
+            
+            print(f"📷 Data: {data}")
+            print(f"📷 Headers: {headers}")
+            
+            # Prepare multipart form data
+            with open(image_file_path, "rb") as image_file:
+                files = {
+                    "media": (os.path.basename(image_file_path), image_file.read(), "image/webp")
+                }
+                
+                print(f"📷 Files: media file ({len(files['media'][1])} bytes)")
+                
+                try:
+                    async with httpx.AsyncClient(timeout=60.0) as client:
+                        response = await client.post(url, headers=headers, data=data, files=files)
+                        
+                        print(f"📷 Response status: {response.status_code}")
+                        print(f"📷 Response body: {response.text}")
+                        
+                        if response.status_code == 200:
+                            print(f"✅ Image message sent via Media Endpoint to {phone_number}")
+                            return True
+                        else:
+                            print(f"❌ Failed to send image message via Media Endpoint: {response.status_code}")
+                            return False
+                except Exception as http_err:
+                    print(f"❌ HTTP request failed: {str(http_err)}")
+                    print(f"❌ HTTP error type: {type(http_err)}")
+                    raise http_err
+                        
+        except Exception as e:
+            print(f"❌ Send image message error (Media Endpoint): {str(e)} | File: {image_file_path}")
+            return False
+    
+    async def send_image_message_n8n_style(self, phone_number: str, image_file_path: str, caption: str = "") -> bool:
+        """
+        Send image using n8n-style approach: /messages/media/image?to=PHONE with binary body
+        Based on working n8n implementation pattern
+        """
+        try:
+            if not os.path.exists(image_file_path):
+                print(f"❌ Image file not found: {image_file_path}")
+                return False
+            
+            file_size = os.path.getsize(image_file_path)
+            
+            # n8n-style URL with query parameters
+            url = f"{self.base_url}/messages/media/image"
+            
+            print(f"📷 Sending image message (n8n style) to {phone_number}")
+            print(f"   File: {image_file_path} ({file_size} bytes)")
+            print(f"   Caption: {caption}")
+            print(f"   URL: {url}")
+            
+            # Headers with authentication but no Content-Type (let httpx auto-detect)
+            headers = {
+                "Authorization": f"Bearer {self.token}"
+            }
+            
+            # Query parameters (n8n style)
+            params = {
+                "to": phone_number
+            }
+            
+            if caption:
+                params["caption"] = caption
+            
+            print(f"📷 Params: {params}")
+            print(f"📷 Headers: {headers}")
+            
+            # Read file as binary data (n8n style)
+            with open(image_file_path, "rb") as image_file:
+                file_data = image_file.read()
+                
+                print(f"📷 Binary data size: {len(file_data)} bytes")
+                
+                try:
+                    async with httpx.AsyncClient(timeout=60.0) as client:
+                        # Send binary data as body with query parameters (n8n approach)
+                        response = await client.post(
+                            url, 
+                            headers=headers, 
+                            params=params,
+                            content=file_data
+                        )
+                        
+                        print(f"📷 Response status: {response.status_code}")
+                        print(f"📷 Response body: {response.text}")
+                        
+                        if response.status_code == 200:
+                            print(f"✅ Image message sent via n8n style to {phone_number}")
+                            return True
+                        else:
+                            print(f"❌ Failed to send image message via n8n style: {response.status_code}")
+                            return False
+                except Exception as http_err:
+                    print(f"❌ HTTP request failed: {str(http_err)}")
+                    print(f"❌ HTTP error type: {type(http_err)}")
+                    raise http_err
+                        
+        except Exception as e:
+            print(f"❌ Send image message error (n8n style): {str(e)} | File: {image_file_path}")
+            return False
+
     async def get_account_info(self) -> Dict[str, Any]:
         """
         Get WhatsApp account information

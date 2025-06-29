@@ -16,15 +16,27 @@ try:
     from app.models import WhatsAppWebhookPayload
     from app.services.whatsapp_service import WhatsAppService
     from app.services.voice_service import VoiceService  # Re-enabled with OpenAI only
+    from app.services.image_service import ImageService  # For image processing and sending
     from app.services.ewelink_service import EWeLinkService
     from app.services.command_processor import CommandProcessor
 
     # Create temp audio directory
     os.makedirs(settings.temp_audio_dir, exist_ok=True)
+    
+    # Create emergency alert test image if it doesn't exist
+    emergency_image_path = "./emergency_alert_test.jpg"
+    if not os.path.exists(emergency_image_path):
+        try:
+            from create_test_image import create_emergency_alert_image
+            create_emergency_alert_image()
+            print(f"✅ Created emergency alert test image: {emergency_image_path}")
+        except Exception as e:
+            print(f"⚠️ Could not create emergency alert image: {str(e)}")
 
     # Initialize services
     whatsapp_service = WhatsAppService()
     voice_service = VoiceService()  # Re-enabled
+    image_service = ImageService()  # For image processing
     ewelink_service = EWeLinkService()
     command_processor = CommandProcessor(whatsapp_service, ewelink_service)
     
@@ -34,6 +46,7 @@ except Exception as e:
     SERVICES_INITIALIZED = False
     whatsapp_service = None
     voice_service = None  # Re-enabled
+    image_service = None  # For image processing
     ewelink_service = None
     command_processor = None
 
@@ -300,6 +313,182 @@ async def whapi_debug():
         return JSONResponse(content={
             "status": "error", 
             "message": f"Debug failed: {str(e)}"
+        }, status_code=500)
+
+@app.get("/send-emergency-alert-image")
+async def send_emergency_alert_image():
+    """Send the emergency alert image that was created locally to Waldo"""
+    try:
+        if not SERVICES_INITIALIZED:
+            return JSONResponse(content={"status": "error", "message": "Services not initialized"}, status_code=503)
+        
+        if not image_service or not whatsapp_service:
+            return JSONResponse(content={"status": "error", "message": "Image or WhatsApp service not available"}, status_code=503)
+        
+        # Use the emergency alert image we created
+        local_image_path = "./emergency_alert_test.jpg"
+        phone_number = "56940035815"  # Waldo's number (working format)
+        caption = "🚨 EMERGENCIA - Prueba de sistema de alarma comunitaria"
+        
+        print(f"📷 Sending emergency alert image to: {phone_number}")
+        print(f"🏷️ Caption: {caption}")
+        print(f"📂 Image: {local_image_path}")
+        
+        # Check if image exists
+        if not os.path.exists(local_image_path):
+            return JSONResponse(content={
+                "status": "error",
+                "message": f"Emergency alert image not found: {local_image_path}",
+                "note": "You may need to create the test image first"
+            })
+        
+        # Step 1: Process image for WhatsApp
+        processed_image = image_service.process_image_for_whatsapp(local_image_path, convert_to_webp=True)
+        if not processed_image:
+            return JSONResponse(content={
+                "status": "error",
+                "message": "Failed to process emergency alert image",
+                "step": "image_processing"
+            })
+        
+        print(f"✅ Image processed: {processed_image}")
+        
+        # Step 2: Send image via WhatsApp (try n8n-style first)
+        print(f"📤 Sending via n8n-style method...")
+        success = await whatsapp_service.send_image_message_n8n_style(phone_number, processed_image, caption)
+        method_used = "n8n_style_binary"
+        
+        if not success:
+            print(f"📤 n8n-style failed, trying base64...")
+            success = await whatsapp_service.send_image_message(phone_number, processed_image, caption)
+            method_used = "base64_json"
+            
+        if not success:
+            print(f"📤 Base64 failed, trying multipart...")
+            success = await whatsapp_service.send_image_message_via_media_endpoint(phone_number, processed_image, caption)
+            method_used = "multipart_form"
+        
+        # Step 3: Cleanup
+        if processed_image != local_image_path:
+            image_service.cleanup_image_file(processed_image)
+        
+        if success:
+            return JSONResponse(content={
+                "status": "success",
+                "message": "Emergency alert image sent successfully!",
+                "phone_number": phone_number,
+                "caption": caption,
+                "method_used": method_used,
+                "original_image": local_image_path,
+                "processed_image": processed_image
+            })
+        else:
+            return JSONResponse(content={
+                "status": "error",
+                "message": "All image sending methods failed",
+                "phone_number": phone_number,
+                "methods_tried": ["n8n_style_binary", "base64_json", "multipart_form"],
+                "note": "Check server logs for detailed WHAPI API responses"
+            })
+        
+    except Exception as e:
+        print(f"❌ Emergency alert image sending error: {str(e)}")
+        return JSONResponse(content={
+            "status": "error", 
+            "message": f"Emergency alert failed: {str(e)}"
+        }, status_code=500)
+
+@app.post("/send-image-from-file")
+async def send_image_from_file(request: Request):
+    """Send image from uploaded file or local path"""
+    try:
+        if not SERVICES_INITIALIZED:
+            return JSONResponse(content={"status": "error", "message": "Services not initialized"}, status_code=503)
+        
+        if not image_service or not whatsapp_service:
+            return JSONResponse(content={"status": "error", "message": "Image or WhatsApp service not available"}, status_code=503)
+        
+        payload = await request.json()
+        local_image_path = payload.get("image_path", "")
+        phone_number = payload.get("phone_number", "56940035815")  # Default to Waldo
+        caption = payload.get("caption", "🚨 EMERGENCIA - Alerta del sistema")
+        convert_to_webp = payload.get("convert_to_webp", True)
+        
+        if not local_image_path:
+            return JSONResponse(content={
+                "status": "error",
+                "message": "image_path is required",
+                "example": {
+                    "image_path": "/path/to/emergency-alert.jpg",
+                    "phone_number": "56940035815",
+                    "caption": "🚨 Emergency alert",
+                    "convert_to_webp": True
+                }
+            })
+        
+        print(f"📷 Sending image from file: {local_image_path}")
+        print(f"📱 To: {phone_number}")
+        print(f"🏷️ Caption: {caption}")
+        print(f"🔄 Convert to WebP: {convert_to_webp}")
+        
+        # Step 1: Process image for WhatsApp
+        processed_image = image_service.process_image_for_whatsapp(local_image_path, convert_to_webp)
+        if not processed_image:
+            return JSONResponse(content={
+                "status": "error",
+                "message": "Failed to process image for WhatsApp",
+                "step": "image_processing"
+            })
+        
+        print(f"✅ Image processed: {processed_image}")
+        
+        # Step 2: Send image via WhatsApp (try multiple methods)
+        print(f"📤 Trying multiple sending methods...")
+        
+        # Try n8n-style method first (most likely to work based on user's example)
+        success = await whatsapp_service.send_image_message_n8n_style(phone_number, processed_image, caption)
+        method_used = "n8n_style_binary"
+        
+        if not success:
+            print(f"📤 n8n-style failed, trying base64 method...")
+            success = await whatsapp_service.send_image_message(phone_number, processed_image, caption)
+            method_used = "base64_json"
+            
+        if not success:
+            print(f"📤 Base64 failed, trying multipart method...")
+            success = await whatsapp_service.send_image_message_via_media_endpoint(phone_number, processed_image, caption)
+            method_used = "multipart_form"
+        
+        # Step 3: Cleanup processed image if it's different from original
+        if processed_image != local_image_path:
+            image_service.cleanup_image_file(processed_image)
+        
+        if success:
+            return JSONResponse(content={
+                "status": "success",
+                "message": "Image message sent successfully",
+                "phone_number": phone_number,
+                "caption": caption,
+                "original_image": local_image_path,
+                "processed_image": processed_image,
+                "converted_to_webp": convert_to_webp,
+                "method_used": method_used
+            })
+        else:
+            return JSONResponse(content={
+                "status": "error",
+                "message": "All image sending methods failed",
+                "phone_number": phone_number,
+                "processed_image": processed_image,
+                "methods_tried": ["n8n_style_binary", "base64_json", "multipart_form"],
+                "note": "Check server logs for detailed WHAPI API responses"
+            })
+        
+    except Exception as e:
+        print(f"❌ Image sending error: {str(e)}")
+        return JSONResponse(content={
+            "status": "error", 
+            "message": f"Image sending failed: {str(e)}"
         }, status_code=500)
 
 @app.post("/device-register")
