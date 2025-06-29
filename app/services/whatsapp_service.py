@@ -247,7 +247,7 @@ class WhatsAppService:
                 return False
             
             file_size = os.path.getsize(audio_file_path)
-            url = f"{self.base_url}/sendmessagevoice"
+            url = f"{self.base_url}/messages/voice"
             
             print(f"🎤 Sending voice message (Base64) to {phone_number}")
             print(f"   File: {audio_file_path} ({file_size} bytes)")
@@ -260,13 +260,14 @@ class WhatsAppService:
             
             print(f"   Base64 length: {len(audio_base64)} characters")
             
-            # Correct payload format based on WHAPI.cloud documentation
+            # Try voice message format similar to text messages
             payload = {
                 "to": phone_number,
-                "voice": f"data:audio/ogg;base64,{audio_base64}"
+                "media": f"data:audio/ogg;base64,{audio_base64}",
+                "type": "voice"
             }
             
-            print(f"🎤 Payload: {{'to': '{phone_number}', 'voice': 'data:audio/ogg;base64,[{len(audio_base64)} chars]'}}")
+            print(f"🎤 Payload: {{'to': '{phone_number}', 'media': 'data:audio/ogg;base64,[{len(audio_base64)} chars]', 'type': 'voice'}}")
             print(f"🎤 Headers: {self.headers}")
             
             try:
@@ -301,7 +302,7 @@ class WhatsAppService:
                 return False
             
             file_size = os.path.getsize(audio_file_path)
-            url = f"{self.base_url}/sendmessagevoice"
+            url = f"{self.base_url}/messages/voice"
             
             print(f"🎤 Sending voice message (File Upload) to {phone_number}")
             print(f"   File: {audio_file_path} ({file_size} bytes)")
@@ -313,7 +314,8 @@ class WhatsAppService:
             }
             
             data = {
-                "to": phone_number
+                "to": phone_number,
+                "type": "voice"
             }
             
             print(f"🎤 Data: {data}")
@@ -322,10 +324,10 @@ class WhatsAppService:
             # Prepare multipart form data
             with open(audio_file_path, "rb") as audio_file:
                 files = {
-                    "voice": ("voice.ogg", audio_file.read(), "audio/ogg; codecs=opus")
+                    "media": ("voice.ogg", audio_file.read(), "audio/ogg; codecs=opus")
                 }
                 
-                print(f"🎤 Files: voice file ({len(files['voice'][1])} bytes)")
+                print(f"🎤 Files: media file ({len(files['media'][1])} bytes)")
                 
                 try:
                     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -363,8 +365,8 @@ class WhatsAppService:
             print(f"🎤 Sending voice message (Upload Media) to {phone_number}")
             print(f"   File: {audio_file_path} ({file_size} bytes)")
             
-            # Step 1: Upload media file first
-            upload_url = f"{self.base_url}/uploadmedia"
+            # Step 1: Upload media file first  
+            upload_url = f"{self.base_url}/messages/media"
             
             headers_upload = {
                 "Authorization": f"Bearer {self.token}"
