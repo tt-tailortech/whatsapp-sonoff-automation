@@ -21,7 +21,7 @@ async def execute_full_emergency_pipeline(
     voice_text: str = None
 ):
     """
-    Basic emergency pipeline - sends text alert for SOS commands
+    Emergency pipeline with WhatsApp message response
     """
     
     print(f"🚨 EMERGENCIA ACTIVADA: {incident_type}")
@@ -29,9 +29,40 @@ async def execute_full_emergency_pipeline(
     print(f"📍 Ubicación: {street_address}")
     print(f"🏘️ Grupo: {group_name}")
     
-    # For now, just return success to indicate the pipeline ran
-    # The actual WhatsApp message will be sent by the command processor fallback
-    return True
+    # Import WhatsApp service to send response
+    try:
+        from app.services.whatsapp_service import WhatsAppService
+        whatsapp_service = WhatsAppService()
+        
+        # Create emergency alert message
+        alert_message = f"""🚨 EMERGENCIA ACTIVADA 🚨
+
+📋 TIPO: {incident_type}
+📍 UBICACIÓN: {street_address}
+👤 REPORTADO POR: {sender_name}
+📞 CONTACTO: {sender_phone}
+
+🚑 EMERGENCIA: {emergency_number}
+⏰ HORA: {datetime.now().strftime('%H:%M:%S')}
+📅 FECHA: {datetime.now().strftime('%d/%m/%Y')}
+
+⚠️ MANTÉNGANSE SEGUROS
+📢 SIGAN INSTRUCCIONES OFICIALES"""
+
+        # Send alert to group
+        print(f"📤 Enviando alerta de emergencia al grupo...")
+        success = await whatsapp_service.send_text_message(group_chat_id, alert_message)
+        
+        if success:
+            print(f"✅ Alerta de emergencia enviada al grupo")
+            return True
+        else:
+            print(f"❌ Falló el envío de la alerta al grupo")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error en pipeline de emergencia: {str(e)}")
+        return False
 
 if __name__ == "__main__":
     print("🚨 Emergency Pipeline - Basic Version")
