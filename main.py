@@ -66,6 +66,43 @@ async def whatsapp_webhook(request: Request):
         print(f"Webhook error: {str(e)}")
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
+@app.get("/send-test-message")
+async def send_test_message():
+    """Send a test message to Waldo via the server's WHAPI connection"""
+    try:
+        if not SERVICES_INITIALIZED:
+            return JSONResponse(content={"status": "error", "message": "Services not initialized"}, status_code=503)
+        
+        # Waldo's number from the logs
+        phone_number = "56940035815@s.whatsapp.net"
+        message = "🤖 Manual test message from alarm system server! This message was sent via the /send-test-message endpoint."
+        
+        print(f"📤 Manual send request to {phone_number}")
+        print(f"📤 Message: {message}")
+        
+        success = await whatsapp_service.send_text_message(phone_number, message)
+        
+        if success:
+            return JSONResponse(content={
+                "status": "success", 
+                "message": "Message sent to Waldo successfully!",
+                "to": phone_number,
+                "text": message
+            })
+        else:
+            return JSONResponse(content={
+                "status": "error", 
+                "message": "Failed to send message to Waldo",
+                "to": phone_number
+            })
+            
+    except Exception as e:
+        print(f"❌ Manual send error: {str(e)}")
+        return JSONResponse(content={
+            "status": "error", 
+            "message": f"Exception occurred: {str(e)}"
+        }, status_code=500)
+
 @app.post("/device-register")
 async def device_register(request: Request):
     try:
