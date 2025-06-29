@@ -16,7 +16,7 @@ def create_emergency_alert(
     phone_number: str, 
     contact_name: str,
     incident_type: str,
-    neighborhood_name: str,  # Will be replaced by chat group name later
+    chat_group_name: str,  # WhatsApp group chat name
     
     # === OPTIONAL CUSTOMIZABLE PARAMETERS ===
     alert_title: str = "EMERGENCIA",
@@ -182,9 +182,9 @@ def create_emergency_alert(
     draw_elegant_text(draw, incident_type, text_x, y + 12, subtitle_font, colors['white'])
     y += badge_height + ELEMENT_SPACING + 5
     
-    # === NEIGHBORHOOD SECTION ===
-    neighborhood_text = f"📍 {neighborhood_name}"
-    draw_elegant_text(draw, neighborhood_text, width//2, y, header_font, colors['accent'], center=True)
+    # === CHAT GROUP SECTION ===
+    group_text = f"📍 {chat_group_name}"
+    draw_elegant_text(draw, group_text, width//2, y, header_font, colors['accent'], center=True)
     y += 25
     
     # === SYSTEM NAME ===
@@ -343,7 +343,7 @@ def test_emergency_alert_production():
         "phone_number": "+56 9 1234 5678",
         "contact_name": "Dr. Ana Martínez",
         "incident_type": "EMERGENCIA MÉDICA",
-        "neighborhood_name": "Las Condes Norte",
+        "chat_group_name": "Las Condes Norte",
         "alert_title": "EMERGENCIA",
         "emergency_number": "SAMU 131",
         "show_night_sky": True,
@@ -351,7 +351,7 @@ def test_emergency_alert_production():
     }
     
     print(f"\n🎯 Test Case: {test_case['incident_type']}")
-    print(f"   🏘️ Neighborhood: {test_case['neighborhood_name']}")
+    print(f"   🏘️ Chat Group: {test_case['chat_group_name']}")
     print(f"   📍 Street: {test_case['street_address']}")
     print(f"   👤 Contact: {test_case['contact_name']}")
     print(f"   🚑 Emergency: {test_case['emergency_number']}")

@@ -62,12 +62,24 @@ class WhatsAppService:
                     
                     print(f"📨 Processing incoming text message")
                     
+                    # Extract chat name - prioritize group chat name for groups, contact name for individual chats
+                    chat_name = None
+                    if message.get("chat_id", "").endswith("@g.us"):
+                        # Group chat - try multiple possible fields for group name
+                        chat_name = message.get("chat_name") or message.get("chat_title") or "Grupo"
+                        print(f"📨 Group chat detected: {chat_name}")
+                    else:
+                        # Individual chat - use contact name
+                        chat_name = message.get("from_name", "Usuario")
+                        print(f"📨 Individual chat detected: {chat_name}")
+                    
                     return WhatsAppMessage(
                         id=message_id,
                         from_phone=message.get("from", ""),
                         chat_id=message.get("chat_id", ""),
                         text=message.get("text", {}).get("body", "") if isinstance(message.get("text"), dict) else message.get("text", ""),
                         contact_name=message.get("from_name", "Usuario"),
+                        chat_name=chat_name,
                         timestamp=str(message.get("timestamp", ""))
                     )
                 
@@ -114,12 +126,27 @@ class WhatsAppService:
                                 self.processed_message_ids.add(message_id)
                                 print(f"📨 Processing chat update incoming message")
                                 
+                                # Extract chat name for chat updates
+                                chat_name = None
+                                if message.get("chat_id", "").endswith("@g.us"):
+                                    # Group chat - try to get name from chat update or message
+                                    chat_name = (chat_update.get("after_update", {}).get("name") or 
+                                               message.get("chat_name") or 
+                                               message.get("chat_title") or 
+                                               "Grupo")
+                                    print(f"📨 Chat update group: {chat_name}")
+                                else:
+                                    # Individual chat
+                                    chat_name = message.get("from_name", "Usuario")
+                                    print(f"📨 Chat update individual: {chat_name}")
+                                
                                 return WhatsAppMessage(
                                     id=message_id,
                                     from_phone=message.get("from", ""),
                                     chat_id=message.get("chat_id", ""),
                                     text=message.get("text", {}).get("body", "") if isinstance(message.get("text"), dict) else message.get("text", ""),
                                     contact_name=message.get("from_name", "Usuario"),
+                                    chat_name=chat_name,
                                     timestamp=str(message.get("timestamp", ""))
                                 )
                     
@@ -133,12 +160,27 @@ class WhatsAppService:
                             print(f"📨 Message type: {message.get('type')}")
                             
                             if message.get("type") == "text" and not message.get("from_me", True):
+                                # Extract chat name for messages in chat updates
+                                chat_name = None
+                                if message.get("chat_id", "").endswith("@g.us"):
+                                    # Group chat
+                                    chat_name = (message.get("chat_name") or 
+                                               message.get("chat_title") or 
+                                               chat_update.get("name") or
+                                               "Grupo")
+                                    print(f"📨 Chat update message group: {chat_name}")
+                                else:
+                                    # Individual chat
+                                    chat_name = message.get("from_name", "Usuario")
+                                    print(f"📨 Chat update message individual: {chat_name}")
+                                
                                 return WhatsAppMessage(
                                     id=message.get("id", ""),
                                     from_phone=message.get("from", ""),
                                     chat_id=message.get("chat_id", ""),
                                     text=message.get("text", {}).get("body", "") if isinstance(message.get("text"), dict) else message.get("text", ""),
                                     contact_name=message.get("from_name", "Usuario"),
+                                    chat_name=chat_name,
                                     timestamp=str(message.get("timestamp", ""))
                                 )
             
@@ -154,12 +196,27 @@ class WhatsAppService:
                 print(f"📨 Processing direct message (from_me: {message.get('from_me', False)})")
                 
                 if message.get("type") == "text":
+                    # Extract chat name for direct messages fallback
+                    contact_name = payload.get("contacts", [{}])[0].get("profile", {}).get("name")
+                    chat_name = None
+                    if message.get("chat_id", "").endswith("@g.us"):
+                        # Group chat
+                        chat_name = (message.get("chat_name") or 
+                                   message.get("chat_title") or 
+                                   "Grupo")
+                        print(f"📨 Direct message group: {chat_name}")
+                    else:
+                        # Individual chat
+                        chat_name = contact_name or "Usuario"
+                        print(f"📨 Direct message individual: {chat_name}")
+                    
                     return WhatsAppMessage(
                         id=message.get("id", ""),
                         from_phone=message.get("from", ""),
                         chat_id=message.get("chat_id", ""),
                         text=message.get("text", {}).get("body", ""),
-                        contact_name=payload.get("contacts", [{}])[0].get("profile", {}).get("name"),
+                        contact_name=contact_name,
+                        chat_name=chat_name,
                         timestamp=str(message.get("timestamp", ""))
                     )
             
@@ -177,12 +234,27 @@ class WhatsAppService:
                         message = messages[0]
                         contact = contacts[0] if contacts else {}
                         
+                        # Extract chat name for business API format
+                        contact_name = contact.get("profile", {}).get("name")
+                        chat_name = None
+                        if message.get("chat_id", "").endswith("@g.us"):
+                            # Group chat
+                            chat_name = (message.get("chat_name") or 
+                                       message.get("chat_title") or 
+                                       "Grupo")
+                            print(f"📨 Business API group: {chat_name}")
+                        else:
+                            # Individual chat
+                            chat_name = contact_name or "Usuario"
+                            print(f"📨 Business API individual: {chat_name}")
+                        
                         return WhatsAppMessage(
                             id=message.get("id", ""),
                             from_phone=message.get("from", ""),
                             chat_id=message.get("chat_id", ""),
                             text=message.get("text", {}).get("body", ""),
-                            contact_name=contact.get("profile", {}).get("name"),
+                            contact_name=contact_name,
+                            chat_name=chat_name,
                             timestamp=message.get("timestamp", "")
                         )
             

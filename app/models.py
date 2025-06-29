@@ -8,6 +8,7 @@ class WhatsAppMessage(BaseModel):
     chat_id: str  # The WhatsApp chat ID (e.g., 56927713165@s.whatsapp.net)
     text: str
     contact_name: Optional[str] = None
+    chat_name: Optional[str] = None  # Group chat name extracted from webhook
     timestamp: str  # Keep as string to avoid parsing issues
 
 class DeviceCommand(BaseModel):

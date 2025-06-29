@@ -125,10 +125,13 @@ class CommandProcessor:
             
             # Extract group info
             group_chat_id = message.chat_id
-            group_name = "Grupo de Emergencia"  # Default, could be extracted from webhook
+            group_name = message.chat_name or "Grupo de Emergencia"  # Use extracted chat name or default
             if "@g.us" in group_chat_id:
                 # This is a group chat
-                print(f"🏘️ Emergency in group: {group_chat_id}")
+                print(f"🏘️ Emergency in group: {group_name} ({group_chat_id})")
+            else:
+                # Individual chat
+                print(f"🏘️ Emergency in individual chat: {group_name} ({group_chat_id})")
             
             # Get device ID
             device_id = await self._get_device_id()
