@@ -142,24 +142,31 @@ async def execute_full_emergency_pipeline(
     print(f"\n📷 PASO 3: IMAGEN DE ALERTA DE EMERGENCIA")
     
     try:
-        # Try to import image service
-        from app.services.image_service import ImageService
-        image_service = ImageService()
+        # Generate dynamic emergency alert image with placeholder data
+        from create_emergency_alert_final import create_emergency_alert
         
-        # Check for professional emergency alert image
-        image_path = "./emergency_alert_professional.jpg"
-        if not os.path.exists(image_path):
-            image_path = "./emergency_alert_test.jpg"
-            if not os.path.exists(image_path):
-                print(f"⚠️ No emergency alert image found, skipping image step")
-                failed_steps.append("Emergency Alert Image")
-            else:
-                print(f"📷 Using fallback image: {image_path}")
-        else:
-            print(f"📷 Using professional image: {image_path}")
+        print(f"🖼️ Generating emergency alert image with dynamic data...")
+        
+        # Create emergency alert with populated fields
+        image_path = create_emergency_alert(
+            street_address=street_address,
+            phone_number=sender_phone,
+            contact_name=sender_name,
+            incident_type=incident_type,
+            neighborhood_name=group_name,
+            alert_title="EMERGENCIA",
+            emergency_number=emergency_number,
+            show_night_sky=True,
+            show_background_city=True
+        )
         
         if os.path.exists(image_path):
+            print(f"✅ Emergency alert image generated: {image_path}")
+            
             # Process image for WhatsApp
+            from app.services.image_service import ImageService
+            image_service = ImageService()
+            
             print(f"🔄 Processing image for WhatsApp...")
             processed_image = image_service.process_image_for_whatsapp(image_path, convert_to_webp=True)
             
@@ -170,9 +177,14 @@ async def execute_full_emergency_pipeline(
                 # Send image to group
                 image_success = await whatsapp_service.send_image_message_n8n_style(group_chat_id, processed_image, image_caption)
                 
-                # Cleanup
+                # Cleanup processed image if different from original
                 if processed_image != image_path:
                     image_service.cleanup_image_file(processed_image)
+                
+                # Cleanup original generated image
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                    print(f"🧹 Cleaned up generated image: {image_path}")
                 
                 if image_success:
                     print(f"✅ Imagen de emergencia enviada al grupo")
@@ -181,6 +193,8 @@ async def execute_full_emergency_pipeline(
                     raise Exception("Falló el envío de la imagen de emergencia")
             else:
                 raise Exception("No se pudo procesar la imagen")
+        else:
+            raise Exception("No se pudo generar la imagen de emergencia")
             
     except Exception as e:
         print(f"❌ Error enviando imagen de emergencia: {str(e)}")
@@ -227,31 +241,46 @@ async def execute_full_emergency_pipeline(
     print(f"\n🎬 PASO 5: GIF ANIMADO DE EMERGENCIA")
     
     try:
-        # Create animated siren GIF if it doesn't exist
-        gif_path = "./animated_emergency_siren.gif"
+        # Generate dynamic animated emergency alert GIF with placeholder data
+        from create_final_animated_siren import create_animated_emergency_alert_gif
         
-        if not os.path.exists(gif_path):
-            try:
-                from create_animated_siren import create_animated_siren_gif
-                create_animated_siren_gif()
-                print(f"✅ GIF animado creado: {gif_path}")
-            except Exception as create_error:
-                print(f"⚠️ No se pudo crear GIF animado: {str(create_error)}")
-                raise Exception("No se pudo crear el GIF animado")
+        print(f"🎬 Generating animated emergency alert GIF with dynamic data...")
+        
+        # Create animated emergency alert with populated fields
+        gif_path = create_animated_emergency_alert_gif(
+            street_address=street_address,
+            phone_number=sender_phone,
+            contact_name=sender_name,
+            incident_type=incident_type,
+            neighborhood_name=group_name,
+            alert_title="EMERGENCIA",
+            emergency_number=emergency_number,
+            num_frames=12,
+            frame_duration=150,
+            show_night_sky=True
+        )
+        
+        if os.path.exists(gif_path):
+            print(f"✅ Animated emergency alert GIF generated: {gif_path}")
+            
+            # Send animated GIF to group
+            print(f"📤 Enviando GIF animado al grupo...")
+            gif_caption = f"🚨 ALERTA ANIMADA: {incident_type} 🚨"
+            
+            gif_success = await whatsapp_service.send_gif_message(group_chat_id, gif_path, gif_caption)
+            
+            # Cleanup generated GIF
+            if os.path.exists(gif_path):
+                os.remove(gif_path)
+                print(f"🧹 Cleaned up generated GIF: {gif_path}")
+            
+            if gif_success:
+                print(f"✅ GIF animado enviado al grupo")
+                success_steps.append("Animated Emergency GIF")
+            else:
+                raise Exception("Falló el envío del GIF animado")
         else:
-            print(f"🎬 Usando GIF existente: {gif_path}")
-        
-        # Send animated GIF to group
-        print(f"📤 Enviando GIF animado al grupo...")
-        gif_caption = f"🚨 ALERTA ANIMADA: {incident_type} 🚨"
-        
-        gif_success = await whatsapp_service.send_gif_message(group_chat_id, gif_path, gif_caption)
-        
-        if gif_success:
-            print(f"✅ GIF animado enviado al grupo")
-            success_steps.append("Animated Emergency GIF")
-        else:
-            raise Exception("Falló el envío del GIF animado")
+            raise Exception("No se pudo generar el GIF animado")
             
     except Exception as e:
         print(f"❌ Error enviando GIF animado: {str(e)}")
