@@ -31,11 +31,19 @@ class GroupManagerService:
             if credentials_json:
                 print("✅ Using Google Drive credentials from environment variable")
                 import json
-                credentials_info = json.loads(credentials_json)
-                credentials = service_account.Credentials.from_service_account_info(
-                    credentials_info,
-                    scopes=['https://www.googleapis.com/auth/drive']
-                )
+                try:
+                    # Handle potential escape issues in JSON string
+                    credentials_info = json.loads(credentials_json)
+                    credentials = service_account.Credentials.from_service_account_info(
+                        credentials_info,
+                        scopes=['https://www.googleapis.com/auth/drive']
+                    )
+                    print("✅ Google Drive credentials parsed successfully")
+                except json.JSONDecodeError as e:
+                    print(f"❌ JSON parsing error: {str(e)}")
+                    print(f"❌ Credentials string length: {len(credentials_json)}")
+                    print(f"❌ First 100 chars: {credentials_json[:100]}")
+                    return False
             else:
                 # Fallback to local file (for local development)
                 credentials_path = "./google_drive_credentials.json"
