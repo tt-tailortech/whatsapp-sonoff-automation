@@ -137,6 +137,56 @@ try:
     print("🚨 EMERGENCY SYSTEM READY FOR WHATSAPP MESSAGES")
     print("🚨" + "="*60 + "\n")
     
+    # Send WhatsApp confirmation message to test group
+    try:
+        test_group_id = "120363400467632358@g.us"
+        confirmation_message = """🚨 SISTEMA DE EMERGENCIAS ACTUALIZADO 🚨
+
+✅ NUEVAS FUNCIONALIDADES DISPONIBLES:
+
+📝 COMANDOS DE EDICIÓN:
+• @editar [comando en español] - Edición de miembros con lenguaje natural
+• @exportar [csv|json] - Exportar datos de miembros
+• @importar - Importar datos masivos
+• @plantilla - Obtener plantilla CSV
+
+💾 SISTEMA DE BACKUP:
+• @backup - Crear backup del grupo
+• @backup full - Crear backup completo
+• @restore [nombre] - Restaurar desde backup
+• @backups - Listar backups disponibles
+
+🚨 RESPUESTA DE EMERGENCIA MEJORADA:
+• SOS [tipo] - Ahora usa base de datos de miembros
+• Incluye direcciones completas, info médica
+• Contactos: SAMU (131), BOMBEROS (132), CARABINEROS (133)
+• Encriptación inteligente para datos médicos sensibles
+
+📊 SISTEMA DE AUDITORÍA:
+• Registro completo de cambios y emergencias
+• Almacenamiento en Google Drive y local
+
+⚡ ESTADO: 🟢 SISTEMA OPERACIONAL
+Solo administradores pueden usar comandos @editar, @backup, etc.
+
+¡El sistema está listo para recibir mensajes!"""
+
+        import asyncio
+        # Use asyncio.create_task to send message without blocking startup
+        async def send_startup_message():
+            try:
+                await whatsapp_service.send_text_message(test_group_id, confirmation_message)
+                print("✅ Sistema de confirmación enviado al grupo TEST_ALARM")
+            except Exception as e:
+                print(f"⚠️ No se pudo enviar mensaje de confirmación: {str(e)}")
+        
+        # Schedule the message to be sent (non-blocking)
+        loop = asyncio.get_event_loop()
+        loop.create_task(send_startup_message())
+        
+    except Exception as e:
+        print(f"⚠️ Error preparando mensaje de confirmación: {str(e)}")
+    
     SERVICES_INITIALIZED = True
 except Exception as e:
     print(f"\n🚨" + "="*60)
