@@ -7,6 +7,8 @@ Integrates all emergency response components in proper sequence
 import asyncio
 import os
 import time
+import json
+import aiohttp
 from datetime import datetime
 
 async def execute_full_emergency_pipeline(
@@ -102,8 +104,26 @@ async def execute_full_emergency_pipeline(
     print(f"\n📱 PASO 2: RESUMEN DE TEXTO")
     
     try:
-        # Create comprehensive text summary
-        text_summary = f"""🚨 EMERGENCIA ACTIVADA 🚨
+        # Generate intelligent emergency message using OpenAI
+        print(f"🤖 Generating intelligent emergency message with OpenAI...")
+        
+        try:
+            # Try to generate AI-enhanced message
+            text_summary = await generate_intelligent_emergency_message(
+                incident_type=incident_type,
+                street_address=street_address,
+                sender_name=sender_name,
+                sender_phone=sender_phone,
+                emergency_number=emergency_number,
+                group_name=group_name
+            )
+            print(f"✅ AI-generated emergency message created")
+        except Exception as ai_error:
+            print(f"⚠️ AI message generation failed: {str(ai_error)}")
+            print(f"📝 Using fallback template message...")
+            
+            # Fallback to template message
+            text_summary = f"""🚨 EMERGENCIA ACTIVADA 🚨
 
 📋 TIPO: {incident_type}
 📍 UBICACIÓN: {street_address}
@@ -220,7 +240,20 @@ async def execute_full_emergency_pipeline(
         voice_service = VoiceService()
         
         if voice_text is None:
-            voice_text = f"Alerta de emergencia. {incident_type} reportada en {street_address}. Contacto de emergencia: {emergency_number}. Reportado por {sender_name}. Por favor, manténganse seguros y sigan las instrucciones de las autoridades."
+            # Generate intelligent voice message
+            try:
+                print(f"🤖 Generating intelligent voice message with OpenAI...")
+                voice_text = await generate_intelligent_voice_message(
+                    incident_type=incident_type,
+                    street_address=street_address,
+                    sender_name=sender_name,
+                    emergency_number=emergency_number
+                )
+                print(f"✅ AI-generated voice message created")
+            except Exception as ai_error:
+                print(f"⚠️ AI voice generation failed: {str(ai_error)}")
+                print(f"📝 Using fallback voice message...")
+                voice_text = f"Alerta de emergencia. {incident_type} reportada en {street_address}. Contacto de emergencia: {emergency_number}. Reportado por {sender_name}. Por favor, manténganse seguros y sigan las instrucciones de las autoridades."
         
         print(f"🎙️ Generando mensaje de voz...")
         
@@ -343,6 +376,182 @@ async def execute_full_emergency_pipeline(
         print(f"🚨 Algunos componentes fallaron - revisar logs")
     
     return overall_success
+
+async def generate_intelligent_emergency_message(
+    incident_type: str,
+    street_address: str,
+    sender_name: str,
+    sender_phone: str,
+    emergency_number: str,
+    group_name: str
+) -> str:
+    """
+    Generate intelligent, context-aware emergency message using OpenAI
+    """
+    
+    # Get OpenAI API key
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        raise Exception("OpenAI API key not configured")
+    
+    # Create intelligent prompt based on incident type
+    current_time = datetime.now()
+    
+    prompt = f"""You are an emergency response system AI for a community alert network in Chile. Generate a professional, urgent, and helpful emergency alert message in Spanish.
+
+EMERGENCY DETAILS:
+- Incident Type: {incident_type}
+- Location: {street_address}  
+- Reported by: {sender_name}
+- Contact: {sender_phone}
+- Emergency Services: {emergency_number}
+- Community Group: {group_name}
+- Time: {current_time.strftime('%H:%M:%S')}
+- Date: {current_time.strftime('%d/%m/%Y')}
+
+REQUIREMENTS:
+1. Start with 🚨 EMERGENCIA ACTIVADA 🚨
+2. Use appropriate emojis for the incident type
+3. Include specific safety instructions based on the emergency type
+4. Keep it under 300 words
+5. Use urgent but professional tone
+6. Include all provided details
+7. End with community safety reminder
+8. Format for WhatsApp readability
+
+INCIDENT-SPECIFIC INSTRUCTIONS:
+- INCENDIO: Fire safety, evacuation routes, smoke precautions
+- EMERGENCIA MÉDICA: Medical emergency protocols, space for ambulances
+- ACCIDENTE: Traffic safety, avoid area, help emergency services
+- TERREMOTO: Earthquake safety, aftershock warnings, safe areas
+- EMERGENCIA GENERAL: General emergency protocols
+
+Generate the complete message now:"""
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            headers = {
+                "Authorization": f"Bearer {openai_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {
+                        "role": "system", 
+                        "content": "You are a professional emergency response AI assistant for community safety alerts in Chile. Generate urgent, helpful, and appropriately formatted emergency messages in Spanish."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "max_tokens": 500,
+                "temperature": 0.3  # Lower temperature for consistency and professionalism
+            }
+            
+            async with session.post(
+                "https://api.openai.com/v1/chat/completions", 
+                headers=headers, 
+                json=payload,
+                timeout=10
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    message = result['choices'][0]['message']['content'].strip()
+                    print(f"🤖 OpenAI generated {len(message)} character emergency message")
+                    return message
+                else:
+                    error_text = await response.text()
+                    raise Exception(f"OpenAI API error {response.status}: {error_text}")
+                    
+    except Exception as e:
+        print(f"❌ OpenAI message generation error: {str(e)}")
+        raise e
+
+async def generate_intelligent_voice_message(
+    incident_type: str,
+    street_address: str,
+    sender_name: str,
+    emergency_number: str
+) -> str:
+    """
+    Generate intelligent voice message for TTS using OpenAI
+    """
+    
+    # Get OpenAI API key
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        raise Exception("OpenAI API key not configured")
+    
+    prompt = f"""Generate a clear, urgent voice message in Spanish for emergency text-to-speech audio broadcast. This will be spoken aloud to the community.
+
+EMERGENCY DETAILS:
+- Incident Type: {incident_type}
+- Location: {street_address}
+- Reported by: {sender_name}
+- Emergency Contact: {emergency_number}
+
+VOICE MESSAGE REQUIREMENTS:
+1. Clear, calm but urgent tone suitable for TTS
+2. 30-60 seconds when spoken (around 100-200 words)
+3. Include specific safety instructions for the incident type
+4. Easy to understand when spoken aloud
+5. Include emergency contact number clearly
+6. End with safety reminder
+7. Use simple, clear Spanish suitable for audio
+
+INCIDENT-SPECIFIC VOICE INSTRUCTIONS:
+- INCENDIO: Clear evacuation instructions, avoid smoke
+- EMERGENCIA MÉDICA: Make space for ambulances, CPR if needed
+- ACCIDENTE: Traffic warnings, alternative routes
+- TERREMOTO: Drop-cover-hold, aftershock warnings
+- EMERGENCIA GENERAL: General safety protocols
+
+Generate ONLY the voice message text (no formatting, no emojis):"""
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            headers = {
+                "Authorization": f"Bearer {openai_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {
+                        "role": "system", 
+                        "content": "You are a professional emergency voice system. Generate clear, urgent voice messages in Spanish for text-to-speech emergency broadcasts."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "max_tokens": 300,
+                "temperature": 0.2  # Very low temperature for consistency in emergency situations
+            }
+            
+            async with session.post(
+                "https://api.openai.com/v1/chat/completions", 
+                headers=headers, 
+                json=payload,
+                timeout=10
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    voice_message = result['choices'][0]['message']['content'].strip()
+                    print(f"🤖 OpenAI generated {len(voice_message)} character voice message")
+                    return voice_message
+                else:
+                    error_text = await response.text()
+                    raise Exception(f"OpenAI API error {response.status}: {error_text}")
+                    
+    except Exception as e:
+        print(f"❌ OpenAI voice generation error: {str(e)}")
+        raise e
 
 if __name__ == "__main__":
     print("🚨 Emergency Pipeline - Basic Version")
