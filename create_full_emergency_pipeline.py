@@ -24,10 +24,10 @@ async def execute_full_emergency_pipeline(
     """
     Execute complete emergency response pipeline:
     1. Device blink sequence (ending OFF)
-    2. Voice message (OpenAI TTS)
-    3. Emergency alert image (WebP format)
-    4. Text summary with details
-    5. Animated emergency GIF
+    2. Text summary (FAST - immediate alert)
+    3. Emergency alert image (dynamic with real data)
+    4. Voice message (OpenAI TTS - slower)
+    5. Animated emergency GIF (dynamic with real data)
     """
     
     print("🚨" + "="*80)
@@ -98,8 +98,121 @@ async def execute_full_emergency_pipeline(
     
     await asyncio.sleep(2)
     
-    # === STEP 2: VOICE MESSAGE ===
-    print(f"\n🎤 PASO 2: MENSAJE DE VOZ")
+    # === STEP 2: TEXT SUMMARY (FAST) ===
+    print(f"\n📱 PASO 2: RESUMEN DE TEXTO")
+    
+    try:
+        # Create comprehensive text summary
+        text_summary = f"""🚨 EMERGENCIA ACTIVADA 🚨
+
+📋 TIPO: {incident_type}
+📍 UBICACIÓN: {street_address}
+👤 REPORTADO POR: {sender_name}
+📞 CONTACTO: {sender_phone}
+
+🚑 EMERGENCIA: {emergency_number}
+⏰ HORA: {datetime.now().strftime('%H:%M:%S')}
+📅 FECHA: {datetime.now().strftime('%d/%m/%Y')}
+
+⚠️ MANTÉNGANSE SEGUROS
+📢 SIGAN INSTRUCCIONES OFICIALES"""
+        
+        print(f"📤 Enviando resumen de texto al grupo...")
+        text_success = await whatsapp_service.send_text_message(group_chat_id, text_summary)
+        
+        if text_success:
+            print(f"✅ Resumen de texto enviado al grupo")
+            success_steps.append("Text Summary")
+        else:
+            raise Exception("Falló el envío del resumen de texto")
+            
+    except Exception as e:
+        print(f"❌ Error enviando resumen de texto: {str(e)}")
+        failed_steps.append("Text Summary")
+    
+    await asyncio.sleep(2)
+    
+    # === STEP 3: EMERGENCY ALERT IMAGE ===
+    print(f"\n📷 PASO 3: IMAGEN DE ALERTA DE EMERGENCIA")
+    
+    try:
+        # Generate dynamic emergency alert image with placeholder data
+        from create_emergency_alert_final import create_emergency_alert
+        
+        print(f"🖼️ Generating emergency alert image with dynamic data...")
+        print(f"📊 Parameters: incident_type='{incident_type}', sender_name='{sender_name}', sender_phone='{sender_phone}'")
+        
+        # Create emergency alert with populated fields
+        image_path = create_emergency_alert(
+            street_address=street_address,
+            phone_number=sender_phone,
+            contact_name=sender_name,
+            incident_type=incident_type,
+            neighborhood_name=group_name,
+            alert_title="EMERGENCIA",
+            emergency_number=emergency_number,
+            show_night_sky=True,
+            show_background_city=True
+        )
+        
+        print(f"🖼️ Generated image path: {image_path}")
+        
+        if os.path.exists(image_path):
+            print(f"✅ Emergency alert image generated: {image_path}")
+            
+            # Process image for WhatsApp
+            from app.services.image_service import ImageService
+            image_service = ImageService()
+            
+            print(f"🔄 Processing image for WhatsApp...")
+            processed_image = image_service.process_image_for_whatsapp(image_path, convert_to_webp=True)
+            
+            if processed_image:
+                print(f"📤 Sending emergency alert image...")
+                image_caption = f"🚨 EMERGENCIA: {incident_type} - {street_address}"
+                
+                # Try multiple image sending methods
+                print(f"📤 Trying image sending methods...")
+                
+                # Method 1: Base64 JSON (most reliable)
+                image_success = await whatsapp_service.send_image_message(group_chat_id, processed_image, image_caption)
+                
+                if not image_success:
+                    print(f"📤 Base64 failed, trying n8n style...")
+                    image_success = await whatsapp_service.send_image_message_n8n_style(group_chat_id, processed_image, image_caption)
+                
+                if not image_success:
+                    print(f"📤 n8n style failed, trying multipart...")
+                    image_success = await whatsapp_service.send_image_message_via_media_endpoint(group_chat_id, processed_image, image_caption)
+                
+                # Cleanup processed image if different from original
+                if processed_image != image_path:
+                    image_service.cleanup_image_file(processed_image)
+                
+                # Cleanup original generated image
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                    print(f"🧹 Cleaned up generated image: {image_path}")
+                
+                if image_success:
+                    print(f"✅ Imagen de emergencia enviada al grupo")
+                    success_steps.append("Emergency Alert Image")
+                else:
+                    raise Exception("Falló el envío de la imagen de emergencia")
+            else:
+                raise Exception("No se pudo procesar la imagen")
+        else:
+            raise Exception("No se pudo generar la imagen de emergencia")
+            
+    except Exception as e:
+        print(f"❌ Error enviando imagen de emergencia: {str(e)}")
+        print(f"⚠️ Continuando sin imagen...")
+        failed_steps.append("Emergency Alert Image")
+    
+    await asyncio.sleep(2)
+    
+    # === STEP 4: VOICE MESSAGE (SLOWER) ===
+    print(f"\n🎤 PASO 4: MENSAJE DE VOZ")
     
     try:
         # Try to import voice service
@@ -138,105 +251,6 @@ async def execute_full_emergency_pipeline(
     
     await asyncio.sleep(2)
     
-    # === STEP 3: EMERGENCY ALERT IMAGE ===
-    print(f"\n📷 PASO 3: IMAGEN DE ALERTA DE EMERGENCIA")
-    
-    try:
-        # Generate dynamic emergency alert image with placeholder data
-        from create_emergency_alert_final import create_emergency_alert
-        
-        print(f"🖼️ Generating emergency alert image with dynamic data...")
-        
-        # Create emergency alert with populated fields
-        image_path = create_emergency_alert(
-            street_address=street_address,
-            phone_number=sender_phone,
-            contact_name=sender_name,
-            incident_type=incident_type,
-            neighborhood_name=group_name,
-            alert_title="EMERGENCIA",
-            emergency_number=emergency_number,
-            show_night_sky=True,
-            show_background_city=True
-        )
-        
-        if os.path.exists(image_path):
-            print(f"✅ Emergency alert image generated: {image_path}")
-            
-            # Process image for WhatsApp
-            from app.services.image_service import ImageService
-            image_service = ImageService()
-            
-            print(f"🔄 Processing image for WhatsApp...")
-            processed_image = image_service.process_image_for_whatsapp(image_path, convert_to_webp=True)
-            
-            if processed_image:
-                print(f"📤 Sending emergency alert image...")
-                image_caption = f"🚨 EMERGENCIA: {incident_type} - {street_address}"
-                
-                # Send image to group
-                image_success = await whatsapp_service.send_image_message_n8n_style(group_chat_id, processed_image, image_caption)
-                
-                # Cleanup processed image if different from original
-                if processed_image != image_path:
-                    image_service.cleanup_image_file(processed_image)
-                
-                # Cleanup original generated image
-                if os.path.exists(image_path):
-                    os.remove(image_path)
-                    print(f"🧹 Cleaned up generated image: {image_path}")
-                
-                if image_success:
-                    print(f"✅ Imagen de emergencia enviada al grupo")
-                    success_steps.append("Emergency Alert Image")
-                else:
-                    raise Exception("Falló el envío de la imagen de emergencia")
-            else:
-                raise Exception("No se pudo procesar la imagen")
-        else:
-            raise Exception("No se pudo generar la imagen de emergencia")
-            
-    except Exception as e:
-        print(f"❌ Error enviando imagen de emergencia: {str(e)}")
-        print(f"⚠️ Continuando sin imagen...")
-        failed_steps.append("Emergency Alert Image")
-    
-    await asyncio.sleep(2)
-    
-    # === STEP 4: TEXT SUMMARY ===
-    print(f"\n📱 PASO 4: RESUMEN DE TEXTO")
-    
-    try:
-        # Create comprehensive text summary
-        text_summary = f"""🚨 EMERGENCIA ACTIVADA 🚨
-
-📋 TIPO: {incident_type}
-📍 UBICACIÓN: {street_address}
-👤 REPORTADO POR: {sender_name}
-📞 CONTACTO: {sender_phone}
-
-🚑 EMERGENCIA: {emergency_number}
-⏰ HORA: {datetime.now().strftime('%H:%M:%S')}
-📅 FECHA: {datetime.now().strftime('%d/%m/%Y')}
-
-⚠️ MANTÉNGANSE SEGUROS
-📢 SIGAN INSTRUCCIONES OFICIALES"""
-        
-        print(f"📤 Enviando resumen de texto al grupo...")
-        text_success = await whatsapp_service.send_text_message(group_chat_id, text_summary)
-        
-        if text_success:
-            print(f"✅ Resumen de texto enviado al grupo")
-            success_steps.append("Text Summary")
-        else:
-            raise Exception("Falló el envío del resumen de texto")
-            
-    except Exception as e:
-        print(f"❌ Error enviando resumen de texto: {str(e)}")
-        failed_steps.append("Text Summary")
-    
-    await asyncio.sleep(2)
-    
     # === STEP 5: ANIMATED EMERGENCY GIF ===
     print(f"\n🎬 PASO 5: GIF ANIMADO DE EMERGENCIA")
     
@@ -245,6 +259,7 @@ async def execute_full_emergency_pipeline(
         from create_final_animated_siren import create_animated_emergency_alert_gif
         
         print(f"🎬 Generating animated emergency alert GIF with dynamic data...")
+        print(f"📊 GIF Parameters: incident_type='{incident_type}', sender_name='{sender_name}', sender_phone='{sender_phone}'")
         
         # Create animated emergency alert with populated fields
         gif_path = create_animated_emergency_alert_gif(
@@ -259,6 +274,8 @@ async def execute_full_emergency_pipeline(
             frame_duration=150,
             show_night_sky=True
         )
+        
+        print(f"🎬 Generated GIF path: {gif_path}")
         
         if os.path.exists(gif_path):
             print(f"✅ Animated emergency alert GIF generated: {gif_path}")
