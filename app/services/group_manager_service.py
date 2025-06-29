@@ -27,8 +27,25 @@ class GroupManagerService:
         try:
             # Try environment variable first (for Render deployment)
             credentials_json = os.getenv("GOOGLE_DRIVE_CREDENTIALS")
+            credentials_base64 = os.getenv("GOOGLE_DRIVE_CREDENTIALS_BASE64")
             
-            if credentials_json:
+            if credentials_base64:
+                print("✅ Using Base64 encoded Google Drive credentials from environment variable")
+                import json
+                import base64
+                try:
+                    # Decode Base64 first, then parse JSON
+                    decoded_json = base64.b64decode(credentials_base64).decode('utf-8')
+                    credentials_info = json.loads(decoded_json)
+                    credentials = service_account.Credentials.from_service_account_info(
+                        credentials_info,
+                        scopes=['https://www.googleapis.com/auth/drive']
+                    )
+                    print("✅ Base64 Google Drive credentials parsed successfully")
+                except Exception as e:
+                    print(f"❌ Base64 credentials parsing error: {str(e)}")
+                    return False
+            elif credentials_json:
                 print("✅ Using Google Drive credentials from environment variable")
                 import json
                 try:
