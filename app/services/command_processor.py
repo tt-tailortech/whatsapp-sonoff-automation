@@ -57,24 +57,55 @@ class CommandProcessor:
             await self._send_error_response(message, str(e))
     
     def _is_sos_command(self, text: str) -> bool:
-        """Check if message starts with SOS (case insensitive, flexible spacing)"""
-        # Remove leading/trailing spaces and check if starts with SOS
+        """Check if message contains SOS in any combination (case insensitive, flexible spacing)"""
+        # Clean text and normalize
         cleaned_text = text.strip().upper()
-        return cleaned_text.startswith('SOS')
+        
+        # More flexible SOS detection patterns
+        sos_patterns = [
+            r'\bSOS\b',           # Exact word SOS
+            r'^SOS\s*',           # SOS at start with optional spaces
+            r'\s+SOS\s*',         # SOS with spaces before and optional after
+            r'^SOS$',             # Just SOS alone
+            r'S\.?O\.?S\.?',      # S.O.S or S O S variations
+        ]
+        
+        for pattern in sos_patterns:
+            if re.search(pattern, cleaned_text):
+                return True
+        
+        return False
     
     def _extract_incident_type(self, text: str) -> str:
-        """Extract incident type from SOS message"""
-        # Remove SOS from beginning and clean up
-        cleaned_text = text.strip()
-        # Remove SOS (case insensitive) from the start
-        sos_pattern = re.compile(r'^sos\s*', re.IGNORECASE)
-        incident_text = sos_pattern.sub('', cleaned_text).strip()
+        """Extract incident type from SOS message (max 2 words after SOS)"""
+        # Clean and normalize text
+        cleaned_text = text.strip().upper()
+        
+        # Find SOS and extract text after it
+        sos_patterns = [
+            r'\bSOS\s+(.+)',      # SOS followed by space and text
+            r'S\.?O\.?S\.?\s+(.+)',  # S.O.S variations followed by text
+        ]
+        
+        incident_text = ""
+        for pattern in sos_patterns:
+            match = re.search(pattern, cleaned_text)
+            if match:
+                incident_text = match.group(1).strip()
+                break
         
         if incident_text:
-            # If there's text after SOS, use it as incident type
-            return incident_text.upper()
+            # Split into words and take maximum 2 words
+            words = incident_text.split()
+            if len(words) > 2:
+                # Take only first 2 words
+                incident_text = " ".join(words[:2])
+            
+            print(f"🎯 Extracted incident type: '{incident_text}' from '{text}'")
+            return incident_text
         else:
             # Default if just "SOS" with no additional text
+            print(f"🎯 Using default incident type for: '{text}'")
             return "EMERGENCIA GENERAL"
     
     async def _handle_sos_command(self, message: WhatsAppMessage, incident_type: str):

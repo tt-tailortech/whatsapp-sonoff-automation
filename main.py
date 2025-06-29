@@ -116,11 +116,13 @@ try:
             print(f"   {i}. '{cmd}' - Activates emergency response system")
         
         print(f"\n🎯 SUPPORTED MESSAGE PATTERNS:")
-        print(f"   • {trigger_commands[0]} → EMERGENCIA GENERAL")
-        print(f"   • {trigger_commands[0].lower()} → EMERGENCIA GENERAL") 
-        print(f"   • {trigger_commands[0]} INCENDIO → INCENDIO")
-        print(f"   • {trigger_commands[0]} EMERGENCIA MÉDICA → EMERGENCIA MÉDICA")
-        print(f"   • {trigger_commands[0]} ACCIDENTE → ACCIDENTE")
+        print(f"   • SOS → EMERGENCIA GENERAL")
+        print(f"   • sos → EMERGENCIA GENERAL") 
+        print(f"   • SOS INCENDIO → INCENDIO")
+        print(f"   • SOS EMERGENCIA MÉDICA → EMERGENCIA MÉDICA")
+        print(f"   • SOS ACCIDENTE VEHICULAR → ACCIDENTE VEHICULAR (max 2 words)")
+        print(f"   • S.O.S TERREMOTO → TERREMOTO")
+        print(f"   • Any message containing SOS triggers emergency response")
         
         print(f"\n📱 TARGET GROUP CHAT: TEST_ALARM (120363400467632358@g.us)")
         print(f"🔧 DEVICE CONTROL: Sonoff switches integrated")
