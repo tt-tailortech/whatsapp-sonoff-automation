@@ -319,6 +319,26 @@ async def whapi_debug():
             "message": f"Debug failed: {str(e)}"
         }, status_code=500)
 
+@app.get("/test-image-endpoint")
+async def test_image_endpoint():
+    """Simple test to check if image endpoint works"""
+    try:
+        from PIL import Image
+        pillow_available = True
+        pillow_error = None
+    except Exception as e:
+        pillow_available = False
+        pillow_error = str(e)
+    
+    return JSONResponse(content={
+        "status": "success",
+        "message": "Image endpoint is working!",
+        "image_service_available": image_service is not None,
+        "pillow_available": pillow_available,
+        "pillow_error": pillow_error,
+        "services_initialized": SERVICES_INITIALIZED
+    })
+
 @app.get("/send-emergency-alert-image")
 async def send_emergency_alert_image():
     """Send the emergency alert image that was created locally to Waldo"""
