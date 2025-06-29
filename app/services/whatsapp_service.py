@@ -17,35 +17,60 @@ class WhatsAppService:
     def parse_whatsapp_webhook(self, payload: Dict[str, Any]) -> Optional[WhatsAppMessage]:
         """
         Parse WhatsApp webhook payload and extract message information
+        Based on actual WHAPI.cloud webhook format analysis
         """
         try:
             # Debug: Print received payload structure
             print(f"📨 Webhook payload keys: {list(payload.keys())}")
             print(f"📨 Full payload: {payload}")
             
-            # Handle WHAPI.cloud webhook format with 'chats_updates' 
+            # Skip status updates (delivery confirmations)
+            if "statuses" in payload:
+                print("📨 Skipping status update webhook")
+                return None
+            
+            # Handle direct messages format - this seems to be the primary format
+            if "messages" in payload and payload["messages"]:
+                message = payload["messages"][0]
+                print(f"📨 Direct message found: {message}")
+                
+                # Only process incoming messages (from_me: False means it's TO us)
+                # If from_me: True, it means we sent it, so ignore
+                if message.get("from_me", True):
+                    print(f"📨 Ignoring outgoing message (from_me: True)")
+                    return None
+                
+                if message.get("type") == "text":
+                    print(f"📨 Processing incoming text message")
+                    return WhatsAppMessage(
+                        id=message.get("id", ""),
+                        from_phone=message.get("from", ""),
+                        chat_id=message.get("chat_id", ""),
+                        text=message.get("text", {}).get("body", "") if isinstance(message.get("text"), dict) else message.get("text", ""),
+                        contact_name=message.get("from_name", "Usuario"),
+                        timestamp=str(message.get("timestamp", ""))
+                    )
+            
+            # Handle chat updates format - secondary format
             if "chats_updates" in payload and payload["chats_updates"]:
                 chat_updates = payload["chats_updates"]
                 print(f"📨 Chat updates found: {len(chat_updates)}")
                 
                 for chat_update in chat_updates:
-                    print(f"📨 Chat update keys: {list(chat_update.keys())}")
-                    
-                    # Check for last_message in after_update (new message received)
+                    # Look for new incoming messages in after_update
                     if "after_update" in chat_update:
                         after_update = chat_update["after_update"]
                         if "last_message" in after_update:
                             message = after_update["last_message"]
-                            print(f"📨 Found last_message: {message}")
+                            print(f"📨 Chat update message: {message}")
                             
-                            # Temporarily bypass from_me check for testing
-                            # if message.get("from_me", False):
-                            #     print("📨 Skipping message from us (from_me: True)")
-                            #     continue
-                            print(f"📨 Processing message (from_me: {message.get('from_me', False)})")
+                            # Only process incoming messages
+                            if message.get("from_me", True):
+                                print(f"📨 Ignoring chat update outgoing message")
+                                continue
                                 
-                            # Only process text messages
                             if message.get("type") == "text":
+                                print(f"📨 Processing chat update incoming message")
                                 return WhatsAppMessage(
                                     id=message.get("id", ""),
                                     from_phone=message.get("from", ""),
@@ -119,6 +144,9 @@ class WhatsAppService:
                         )
             
             print("❌ No valid message format found in webhook payload")
+            return None
+            
+            print("❌ No valid incoming message found in webhook payload")
             return None
             
         except Exception as e:
