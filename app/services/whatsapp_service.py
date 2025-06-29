@@ -23,7 +23,7 @@ class WhatsAppService:
             print(f"📨 Webhook payload keys: {list(payload.keys())}")
             print(f"📨 Full payload: {payload}")
             
-            # Handle WHAPI.cloud webhook format with 'chats_updates'
+            # Handle WHAPI.cloud webhook format with 'chats_updates' 
             if "chats_updates" in payload and payload["chats_updates"]:
                 chat_updates = payload["chats_updates"]
                 print(f"📨 Chat updates found: {len(chat_updates)}")
@@ -38,8 +38,13 @@ class WhatsAppService:
                             message = after_update["last_message"]
                             print(f"📨 Found last_message: {message}")
                             
-                            # Only process if message is not from us and is text
-                            if not message.get("from_me", True) and message.get("type") == "text":
+                            # Skip messages from us (from_me: True)
+                            if message.get("from_me", False):
+                                print("📨 Skipping message from us (from_me: True)")
+                                continue
+                                
+                            # Only process text messages
+                            if message.get("type") == "text":
                                 return WhatsAppMessage(
                                     id=message.get("id", ""),
                                     from_phone=message.get("from", ""),
@@ -73,6 +78,11 @@ class WhatsAppService:
                 # Direct messages format
                 message = payload["messages"][0]
                 
+                # Skip messages from us
+                if message.get("from_me", False):
+                    print("📨 Skipping direct message from us (from_me: True)")
+                    return None
+                
                 if message.get("type") == "text":
                     return WhatsAppMessage(
                         id=message.get("id", ""),
@@ -80,7 +90,7 @@ class WhatsAppService:
                         chat_id=message.get("chat_id", ""),
                         text=message.get("text", {}).get("body", ""),
                         contact_name=payload.get("contacts", [{}])[0].get("profile", {}).get("name"),
-                        timestamp=message.get("timestamp", "")
+                        timestamp=str(message.get("timestamp", ""))
                     )
             
             elif "entry" in payload:
