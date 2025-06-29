@@ -1,6 +1,7 @@
 import os
 import httpx
 import base64
+import time
 from typing import Optional, Dict, Any
 from app.config import settings
 from app.models import WhatsAppMessage
@@ -25,6 +26,7 @@ class WhatsAppService:
             # Debug: Print received payload structure
             print(f"📨 Webhook payload keys: {list(payload.keys())}")
             print(f"📨 Full payload: {payload}")
+            print(f"📨 Currently processed message IDs: {list(self.processed_message_ids)[-10:]}")
             
             # Skip status updates (delivery confirmations)
             if "statuses" in payload:
@@ -92,6 +94,16 @@ class WhatsAppService:
                                 
                             if message.get("type") == "text":
                                 message_id = message.get("id", "")
+                                message_timestamp = message.get("timestamp", 0)
+                                current_time = int(time.time())
+                                message_age = current_time - message_timestamp
+                                
+                                print(f"📨 Chat update message timestamp: {message_timestamp}, current: {current_time}, age: {message_age}s")
+                                
+                                # Skip messages older than 30 seconds to avoid processing old messages
+                                if message_age > 30:
+                                    print(f"📨 Skipping old chat update message (age: {message_age}s)")
+                                    continue
                                 
                                 # Check for duplicate message
                                 if message_id in self.processed_message_ids:
@@ -198,8 +210,16 @@ class WhatsAppService:
                 "typing_time": 1  # Simulate 1 second typing for more natural feel
             }
             
+            print(f"📤 Sending message to {phone_number}: {message[:50]}...")
+            print(f"📤 URL: {url}")
+            print(f"📤 Payload: {payload}")
+            print(f"📤 Headers: {self.headers}")
+            
             async with httpx.AsyncClient(timeout=15.0) as client:  # Increased timeout
                 response = await client.post(url, headers=self.headers, json=payload)
+                
+                print(f"📤 Response status: {response.status_code}")
+                print(f"📤 Response body: {response.text}")
                 
                 if response.status_code == 200:
                     print(f"✅ Text message sent to {phone_number}")
