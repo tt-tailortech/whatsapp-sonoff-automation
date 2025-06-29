@@ -61,9 +61,46 @@ try:
     ewelink_service = EWeLinkService()
     command_processor = CommandProcessor(whatsapp_service, ewelink_service)
     
+    # Display configured trigger commands
+    print("\n🚨" + "="*60)
+    print("🚨 WHATSAPP EMERGENCY COMMAND SYSTEM INITIALIZED")
+    print("🚨" + "="*60)
+    
+    if hasattr(command_processor, 'valid_commands'):
+        trigger_commands = command_processor.valid_commands
+        print(f"📢 CONFIGURED TRIGGER KEYWORDS:")
+        for i, cmd in enumerate(trigger_commands, 1):
+            print(f"   {i}. '{cmd}' - Activates emergency response system")
+        
+        print(f"\n🎯 SUPPORTED MESSAGE PATTERNS:")
+        print(f"   • {trigger_commands[0]} → EMERGENCIA GENERAL")
+        print(f"   • {trigger_commands[0].lower()} → EMERGENCIA GENERAL") 
+        print(f"   • {trigger_commands[0]} INCENDIO → INCENDIO")
+        print(f"   • {trigger_commands[0]} EMERGENCIA MÉDICA → EMERGENCIA MÉDICA")
+        print(f"   • {trigger_commands[0]} ACCIDENTE → ACCIDENTE")
+        
+        print(f"\n📱 TARGET GROUP CHAT: TEST_ALARM (120363400467632358@g.us)")
+        print(f"🔧 DEVICE CONTROL: Sonoff switches integrated")
+        print(f"🎤 VOICE ALERTS: OpenAI TTS (Spanish)")
+        print(f"📷 IMAGE ALERTS: {'✅ Available' if IMAGE_SERVICE_AVAILABLE else '❌ Disabled'}")
+        print(f"⚡ STATUS: {'🟢 OPERATIONAL' if SERVICES_INITIALIZED else '🔴 DEGRADED'}")
+    else:
+        print(f"⚠️ Command processor configuration not accessible")
+    
+    print("🚨" + "="*60)
+    print("🚨 EMERGENCY SYSTEM READY FOR WHATSAPP MESSAGES")
+    print("🚨" + "="*60 + "\n")
+    
     SERVICES_INITIALIZED = True
 except Exception as e:
-    print(f"Service initialization error: {str(e)}")
+    print(f"\n🚨" + "="*60)
+    print(f"🚨 EMERGENCY SYSTEM INITIALIZATION FAILED")
+    print(f"🚨" + "="*60)
+    print(f"❌ Service initialization error: {str(e)}")
+    print(f"⚠️ WhatsApp emergency triggers will not work")
+    print(f"🔧 Check server configuration and restart")
+    print(f"🚨" + "="*60 + "\n")
+    
     SERVICES_INITIALIZED = False
     whatsapp_service = None
     voice_service = None  # Re-enabled
@@ -74,14 +111,39 @@ except Exception as e:
 
 @app.get("/")
 async def root():
-    return {"message": "WhatsApp-Sonoff TEST Automation System", "status": "running", "deployment_test": "UPDATED_VERSION"}
+    trigger_info = {}
+    if SERVICES_INITIALIZED and command_processor and hasattr(command_processor, 'valid_commands'):
+        trigger_info = {
+            "triggers": command_processor.valid_commands,
+            "examples": [
+                f"{command_processor.valid_commands[0]} → EMERGENCIA GENERAL",
+                f"{command_processor.valid_commands[0]} INCENDIO → INCENDIO",
+                f"{command_processor.valid_commands[0]} EMERGENCIA MÉDICA → EMERGENCIA MÉDICA"
+            ]
+        }
+    
+    return {
+        "message": "WhatsApp Emergency Command System", 
+        "status": "running", 
+        "services_initialized": SERVICES_INITIALIZED,
+        "emergency_triggers": trigger_info,
+        "target_group": "TEST_ALARM (120363400467632358@g.us)",
+        "deployment_version": "SOS_SYSTEM_v1.0"
+    }
 
 @app.get("/health")
 async def health_check():
+    trigger_status = "none_configured"
+    if SERVICES_INITIALIZED and command_processor and hasattr(command_processor, 'valid_commands'):
+        trigger_status = f"configured: {', '.join(command_processor.valid_commands)}"
+    
     return {
         "status": "healthy" if SERVICES_INITIALIZED else "degraded",
         "services": "operational" if SERVICES_INITIALIZED else "error",
-        "services_initialized": SERVICES_INITIALIZED
+        "services_initialized": SERVICES_INITIALIZED,
+        "emergency_triggers": trigger_status,
+        "whatsapp_webhook": "active" if SERVICES_INITIALIZED else "inactive",
+        "device_control": "available" if SERVICES_INITIALIZED else "unavailable"
     }
 
 @app.post("/whatsapp-webhook")
