@@ -92,14 +92,14 @@ class CommandProcessor:
                 if not on_success:
                     print(f"❌ ON failed in cycle {cycle}")
                     return False
-                await asyncio.sleep(1)
+                await asyncio.sleep(1.5)  # Slightly longer delay
                 
                 # Turn OFF
                 off_success = await self.ewelink.control_device(device_id, "OFF")
                 if not off_success:
                     print(f"❌ OFF failed in cycle {cycle}")
                     return False
-                await asyncio.sleep(1)
+                await asyncio.sleep(1.5)  # Slightly longer delay
             
             # Final: Keep ON
             print("🔥 Final step: Keeping device ON")

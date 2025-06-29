@@ -29,7 +29,7 @@ class WhatsAppService:
                 print("📨 Skipping status update webhook")
                 return None
             
-            # Handle direct messages format - this seems to be the primary format
+            # Handle direct messages format - this is the PRIMARY format, process first
             if "messages" in payload and payload["messages"]:
                 message = payload["messages"][0]
                 print(f"📨 Direct message found: {message}")
@@ -50,8 +50,11 @@ class WhatsAppService:
                         contact_name=message.get("from_name", "Usuario"),
                         timestamp=str(message.get("timestamp", ""))
                     )
+                    
+                # Return None for non-text messages in direct format
+                return None
             
-            # Handle chat updates format - secondary format
+            # Handle chat updates format - ONLY if no direct messages were found
             if "chats_updates" in payload and payload["chats_updates"]:
                 chat_updates = payload["chats_updates"]
                 print(f"📨 Chat updates found: {len(chat_updates)}")
@@ -167,7 +170,7 @@ class WhatsAppService:
                 "typing_time": 1  # Simulate 1 second typing for more natural feel
             }
             
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:  # Increased timeout
                 response = await client.post(url, headers=self.headers, json=payload)
                 
                 if response.status_code == 200:
@@ -178,7 +181,7 @@ class WhatsAppService:
                     return False
                     
         except Exception as e:
-            print(f"Send text message error: {str(e)}")
+            print(f"❌ Send text message error: {str(e)} | To: {phone_number} | Message: {message[:50]}...")
             return False
     
     async def send_voice_message(self, phone_number: str, audio_file_path: str) -> bool:
