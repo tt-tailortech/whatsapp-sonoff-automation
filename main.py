@@ -23,13 +23,17 @@ try:
     # Create temp audio directory
     os.makedirs(settings.temp_audio_dir, exist_ok=True)
     
-    # Create emergency alert test image if it doesn't exist
-    emergency_image_path = "./emergency_alert_test.jpg"
-    if not os.path.exists(emergency_image_path):
+    # Check for professional emergency alert image, fallback to creating test image
+    professional_image_path = "./emergency_alert_professional.jpg"
+    test_image_path = "./emergency_alert_test.jpg"
+    
+    if os.path.exists(professional_image_path):
+        print(f"✅ Using professional emergency alert image: {professional_image_path}")
+    elif not os.path.exists(test_image_path):
         try:
             from create_test_image import create_emergency_alert_image
             create_emergency_alert_image()
-            print(f"✅ Created emergency alert test image: {emergency_image_path}")
+            print(f"✅ Created fallback emergency alert test image: {test_image_path}")
         except Exception as e:
             print(f"⚠️ Could not create emergency alert image: {str(e)}")
 
@@ -325,8 +329,8 @@ async def send_emergency_alert_image():
         if not image_service or not whatsapp_service:
             return JSONResponse(content={"status": "error", "message": "Image or WhatsApp service not available"}, status_code=503)
         
-        # Use the emergency alert image we created
-        local_image_path = "./emergency_alert_test.jpg"
+        # Use the professional emergency alert image
+        local_image_path = "./emergency_alert_professional.jpg"
         phone_number = "56940035815"  # Waldo's number (working format)
         caption = "🚨 EMERGENCIA - Prueba de sistema de alarma comunitaria"
         
@@ -334,13 +338,18 @@ async def send_emergency_alert_image():
         print(f"🏷️ Caption: {caption}")
         print(f"📂 Image: {local_image_path}")
         
-        # Check if image exists
+        # Check if professional image exists, fallback to test image
         if not os.path.exists(local_image_path):
-            return JSONResponse(content={
-                "status": "error",
-                "message": f"Emergency alert image not found: {local_image_path}",
-                "note": "You may need to create the test image first"
-            })
+            fallback_path = "./emergency_alert_test.jpg"
+            if os.path.exists(fallback_path):
+                print(f"⚠️ Professional image not found, using fallback: {fallback_path}")
+                local_image_path = fallback_path
+            else:
+                return JSONResponse(content={
+                    "status": "error",
+                    "message": f"No emergency alert image found. Tried: {local_image_path}, {fallback_path}",
+                    "note": "Please upload emergency_alert_professional.jpg or the system will create a test image"
+                })
         
         # Step 1: Process image for WhatsApp
         processed_image = image_service.process_image_for_whatsapp(local_image_path, convert_to_webp=True)
