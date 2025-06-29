@@ -18,6 +18,11 @@ class CommandProcessor:
         
         # Default device ID - will be set from environment or first device found
         self.default_device_id = None
+        
+        # Lazy load services
+        self._member_editor = None
+        self._bulk_data_service = None
+        self._backup_service = None
     
     async def process_whatsapp_message(self, payload: Dict[str, Any]):
         """Process incoming WhatsApp message and execute commands"""
@@ -50,6 +55,27 @@ class CommandProcessor:
                 # Extract incident type from message (everything after SOS)
                 incident_type = self._extract_incident_type(raw_text)
                 await self._handle_sos_command(message, incident_type)
+            elif raw_text.lower().startswith('@editar'):
+                # Handle @editar commands for member data editing
+                await self._handle_editar_command(message, raw_text)
+            elif raw_text.lower().startswith('@exportar'):
+                # Handle @exportar commands for bulk data export
+                await self._handle_export_command(message, raw_text)
+            elif raw_text.lower().startswith('@importar'):
+                # Handle @importar commands for bulk data import
+                await self._handle_import_command(message, raw_text)
+            elif raw_text.lower().startswith('@plantilla'):
+                # Handle @plantilla command for CSV template
+                await self._handle_template_command(message)
+            elif raw_text.lower().startswith('@backup'):
+                # Handle @backup commands for data backup
+                await self._handle_backup_command(message, raw_text)
+            elif raw_text.lower().startswith('@restore'):
+                # Handle @restore commands for data restoration
+                await self._handle_restore_command(message, raw_text)
+            elif raw_text.lower().startswith('@backups'):
+                # Handle @backups command to list available backups
+                await self._handle_list_backups_command(message)
             else:
                 # Ignore all other commands silently
                 print(f"Ignoring command: {raw_text}")
@@ -147,15 +173,16 @@ class CommandProcessor:
             
             success = await execute_full_emergency_pipeline(
                 incident_type=incident_type,
-                street_address="Ubicación por confirmar",
+                street_address="Ubicación por confirmar",  # Will be updated with member data
                 emergency_number="SAMU 131",
                 sender_phone=message.from_phone,
-                sender_name=message.contact_name or "Usuario",
+                sender_name=message.contact_name or "Usuario",  # Will be updated with member data
                 group_chat_id=group_chat_id,
                 group_name=group_name,
                 device_id=device_id,
                 blink_cycles=3,
-                voice_text=f"Emergencia activada. {incident_type} reportada. Contacto de emergencia: SAMU uno tres uno. Reportado por {message.contact_name or 'usuario'}. Por favor manténganse seguros y sigan las instrucciones de las autoridades."
+                voice_text=f"Emergencia activada. {incident_type} reportada. Contacto de emergencia: SAMU uno tres uno. Reportado por {message.contact_name or 'usuario'}. Por favor manténganse seguros y sigan las instrucciones de las autoridades.",
+                use_member_data=True  # Enable member data lookup
             )
             
             if success:
@@ -167,6 +194,393 @@ class CommandProcessor:
             print(f"SOS command error: {str(e)}")
             # Send basic alert if pipeline fails
             await self._send_text_message(message.chat_id, f"🚨 EMERGENCIA ACTIVADA: {incident_type}")
+    
+    async def _handle_editar_command(self, message: WhatsAppMessage, command_text: str):
+        """Handle @editar command for member data editing"""
+        try:
+            # Only process @editar commands in group chats
+            if not message.chat_id.endswith("@g.us"):
+                print(f"⚠️ @editar command ignored - not a group chat")
+                return
+            
+            print(f"📝 @editar command received from {message.contact_name or message.from_phone}")
+            print(f"📝 Command: {command_text}")
+            
+            # Lazy load member editor service
+            if not self._member_editor:
+                try:
+                    from app.services.member_editor_service import MemberEditorService
+                    self._member_editor = MemberEditorService()
+                    print(f"✅ Member editor service loaded")
+                except ImportError as e:
+                    print(f"❌ Member editor service not available: {str(e)}")
+                    await self._send_text_message(message.chat_id, "❌ Sistema de edición no disponible")
+                    return
+            
+            # Process the @editar command
+            success, response = await self._member_editor.process_editar_command(
+                command_text=command_text,
+                sender_phone=message.from_phone,
+                group_chat_id=message.chat_id,
+                group_name=message.chat_name or "Grupo Desconocido",
+                sender_name=message.contact_name or "Usuario"
+            )
+            
+            # Send response back to the group
+            if response:
+                await self._send_text_message(message.chat_id, response)
+                print(f"✅ @editar response sent: {success}")
+            else:
+                print(f"⚠️ No response generated for @editar command")
+                
+        except Exception as e:
+            print(f"❌ Error processing @editar command: {str(e)}")
+            await self._send_text_message(message.chat_id, f"❌ Error procesando comando @editar: {str(e)}")
+    
+    async def _handle_export_command(self, message: WhatsAppMessage, command_text: str):
+        """Handle @exportar command for bulk data export"""
+        try:
+            # Only process in group chats
+            if not message.chat_id.endswith("@g.us"):
+                print(f"⚠️ @exportar command ignored - not a group chat")
+                return
+            
+            print(f"📤 @exportar command received from {message.contact_name or message.from_phone}")
+            
+            # Lazy load bulk data service
+            if not self._bulk_data_service:
+                try:
+                    from app.services.bulk_data_service import BulkDataService
+                    self._bulk_data_service = BulkDataService()
+                    print(f"✅ Bulk data service loaded")
+                except ImportError as e:
+                    print(f"❌ Bulk data service not available: {str(e)}")
+                    await self._send_text_message(message.chat_id, "❌ Servicio de exportación no disponible")
+                    return
+            
+            # Parse export format
+            parts = command_text.lower().split()
+            export_format = "csv"  # default
+            if len(parts) > 1 and parts[1] in ["csv", "json"]:
+                export_format = parts[1]
+            
+            # Export data
+            if export_format == "csv":
+                success, content, error = await self._bulk_data_service.export_group_members_csv(
+                    message.chat_id, message.chat_name or "Grupo"
+                )
+                if success:
+                    # Save to file and send
+                    filename = f"miembros_{message.chat_name or 'grupo'}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                    with open(filename, 'w', encoding='utf-8') as f:
+                        f.write(content)
+                    
+                    # Send file - Note: This would need WhatsApp file sending capability
+                    response = f"✅ Datos exportados a CSV\n📁 Archivo: {filename}\n📊 {len(content.split(chr(10))-1)} miembros exportados"
+                    await self._send_text_message(message.chat_id, response)
+                else:
+                    await self._send_text_message(message.chat_id, f"❌ Error exportando CSV: {error}")
+            
+            elif export_format == "json":
+                success, content, error = await self._bulk_data_service.export_group_members_json(
+                    message.chat_id, message.chat_name or "Grupo"
+                )
+                if success:
+                    filename = f"miembros_{message.chat_name or 'grupo'}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                    with open(filename, 'w', encoding='utf-8') as f:
+                        f.write(content)
+                    
+                    response = f"✅ Datos exportados a JSON\n📁 Archivo: {filename}\n📊 Exportación completa realizada"
+                    await self._send_text_message(message.chat_id, response)
+                else:
+                    await self._send_text_message(message.chat_id, f"❌ Error exportando JSON: {error}")
+                    
+        except Exception as e:
+            print(f"❌ Error processing @exportar command: {str(e)}")
+            await self._send_text_message(message.chat_id, f"❌ Error procesando comando @exportar: {str(e)}")
+    
+    async def _handle_import_command(self, message: WhatsAppMessage, command_text: str):
+        """Handle @importar command for bulk data import"""
+        try:
+            # Only process in group chats
+            if not message.chat_id.endswith("@g.us"):
+                print(f"⚠️ @importar command ignored - not a group chat")
+                return
+            
+            await self._send_text_message(message.chat_id, 
+                "📥 Para importar datos:\n"
+                "1. Usa @plantilla para obtener formato CSV\n"
+                "2. Envía el archivo CSV como mensaje de texto\n"
+                "3. Usa @importar [contenido CSV]\n\n"
+                "⚠️ Solo administradores pueden importar datos"
+            )
+                    
+        except Exception as e:
+            print(f"❌ Error processing @importar command: {str(e)}")
+            await self._send_text_message(message.chat_id, f"❌ Error procesando comando @importar: {str(e)}")
+    
+    async def _handle_template_command(self, message: WhatsAppMessage):
+        """Handle @plantilla command for CSV template"""
+        try:
+            # Only process in group chats
+            if not message.chat_id.endswith("@g.us"):
+                print(f"⚠️ @plantilla command ignored - not a group chat")
+                return
+            
+            print(f"📋 @plantilla command received from {message.contact_name or message.from_phone}")
+            
+            # Lazy load bulk data service
+            if not self._bulk_data_service:
+                try:
+                    from app.services.bulk_data_service import BulkDataService
+                    self._bulk_data_service = BulkDataService()
+                except ImportError as e:
+                    await self._send_text_message(message.chat_id, "❌ Servicio de plantillas no disponible")
+                    return
+            
+            # Create template
+            template = await self._bulk_data_service.create_member_template_csv()
+            
+            # Save template to file
+            filename = f"plantilla_miembros_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write(template)
+            
+            response = f"""📋 Plantilla CSV creada: {filename}
+
+📝 INSTRUCCIONES:
+1. Descarga el archivo {filename}
+2. Completa los datos de los miembros
+3. Guarda como CSV (UTF-8)
+4. Usa @importar para subir los datos
+
+⚠️ IMPORTANTE:
+- Teléfono y Nombre son obligatorios
+- Coordenadas formato: latitud,longitud
+- Listas separar con punto y coma (;)
+- Es Admin: true/false
+- Solo administradores pueden importar"""
+            
+            await self._send_text_message(message.chat_id, response)
+                    
+        except Exception as e:
+            print(f"❌ Error processing @plantilla command: {str(e)}")
+            await self._send_text_message(message.chat_id, f"❌ Error procesando comando @plantilla: {str(e)}")
+    
+    async def _handle_backup_command(self, message: WhatsAppMessage, command_text: str):
+        """Handle @backup command for data backup"""
+        try:
+            # Only process in group chats
+            if not message.chat_id.endswith("@g.us"):
+                print(f"⚠️ @backup command ignored - not a group chat")
+                return
+            
+            print(f"💾 @backup command received from {message.contact_name or message.from_phone}")
+            
+            # Check admin permissions
+            if not self._member_editor:
+                try:
+                    from app.services.member_editor_service import MemberEditorService
+                    self._member_editor = MemberEditorService()
+                except ImportError:
+                    await self._send_text_message(message.chat_id, "❌ Sistema de permisos no disponible")
+                    return
+            
+            # Check if sender has admin permissions
+            if not await self._member_editor._check_admin_permissions(message.from_phone, message.chat_id, message.chat_name or "Grupo"):
+                await self._send_text_message(message.chat_id, "❌ Solo los administradores pueden crear backups")
+                return
+            
+            # Lazy load backup service
+            if not self._backup_service:
+                try:
+                    from app.services.backup_service import BackupService
+                    self._backup_service = BackupService()
+                    print(f"✅ Backup service loaded")
+                except ImportError as e:
+                    print(f"❌ Backup service not available: {str(e)}")
+                    await self._send_text_message(message.chat_id, "❌ Servicio de backup no disponible")
+                    return
+            
+            # Parse backup type
+            parts = command_text.lower().split()
+            backup_type = "group"  # default to group backup
+            custom_name = None
+            
+            if len(parts) > 1:
+                if "full" in parts[1] or "sistema" in parts[1] or "completo" in parts[1]:
+                    backup_type = "full"
+                elif len(parts) > 1 and parts[1] not in ["grupo", "group"]:
+                    # Custom name provided
+                    custom_name = " ".join(parts[1:])
+            
+            # Create backup
+            if backup_type == "full":
+                await self._send_text_message(message.chat_id, "💾 Creando backup completo del sistema...")
+                success, result = await self._backup_service.create_full_system_backup(custom_name)
+            else:
+                await self._send_text_message(message.chat_id, f"💾 Creando backup del grupo {message.chat_name or 'Grupo'}...")
+                success, result = await self._backup_service.create_group_backup(message.chat_id, message.chat_name or "Grupo")
+            
+            if success:
+                response = f"✅ Backup creado exitosamente\n📁 Ubicación: {result}"
+                if backup_type == "full":
+                    response += "\n📊 Backup incluye todos los grupos del sistema"
+                else:
+                    response += f"\n📊 Backup del grupo: {message.chat_name or 'Grupo'}"
+                await self._send_text_message(message.chat_id, response)
+            else:
+                await self._send_text_message(message.chat_id, f"❌ Error creando backup: {result}")
+                
+        except Exception as e:
+            print(f"❌ Error processing @backup command: {str(e)}")
+            await self._send_text_message(message.chat_id, f"❌ Error procesando comando @backup: {str(e)}")
+    
+    async def _handle_restore_command(self, message: WhatsAppMessage, command_text: str):
+        """Handle @restore command for data restoration"""
+        try:
+            # Only process in group chats
+            if not message.chat_id.endswith("@g.us"):
+                print(f"⚠️ @restore command ignored - not a group chat")
+                return
+            
+            print(f"🔄 @restore command received from {message.contact_name or message.from_phone}")
+            
+            # Check admin permissions
+            if not self._member_editor:
+                try:
+                    from app.services.member_editor_service import MemberEditorService
+                    self._member_editor = MemberEditorService()
+                except ImportError:
+                    await self._send_text_message(message.chat_id, "❌ Sistema de permisos no disponible")
+                    return
+            
+            # Check if sender has admin permissions
+            if not await self._member_editor._check_admin_permissions(message.from_phone, message.chat_id, message.chat_name or "Grupo"):
+                await self._send_text_message(message.chat_id, "❌ Solo los administradores pueden restaurar backups")
+                return
+            
+            # Lazy load backup service
+            if not self._backup_service:
+                try:
+                    from app.services.backup_service import BackupService
+                    self._backup_service = BackupService()
+                    print(f"✅ Backup service loaded")
+                except ImportError as e:
+                    print(f"❌ Backup service not available: {str(e)}")
+                    await self._send_text_message(message.chat_id, "❌ Servicio de backup no disponible")
+                    return
+            
+            # Parse restore parameters
+            parts = command_text.split()
+            if len(parts) < 2:
+                await self._send_text_message(message.chat_id, 
+                    "❌ Uso: @restore [nombre_backup]\n"
+                    "Ejemplo: @restore full_backup_20250629_123456\n"
+                    "Usa @backups para ver backups disponibles"
+                )
+                return
+            
+            backup_path = " ".join(parts[1:])
+            
+            await self._send_text_message(message.chat_id, f"🔄 Restaurando desde backup: {backup_path}...")
+            
+            # Restore from backup
+            success, result = await self._backup_service.restore_from_backup(backup_path)
+            
+            if success:
+                await self._send_text_message(message.chat_id, f"✅ Backup restaurado exitosamente\n📊 {result}")
+            else:
+                await self._send_text_message(message.chat_id, f"❌ Error restaurando backup: {result}")
+                
+        except Exception as e:
+            print(f"❌ Error processing @restore command: {str(e)}")
+            await self._send_text_message(message.chat_id, f"❌ Error procesando comando @restore: {str(e)}")
+    
+    async def _handle_list_backups_command(self, message: WhatsAppMessage):
+        """Handle @backups command to list available backups"""
+        try:
+            # Only process in group chats
+            if not message.chat_id.endswith("@g.us"):
+                print(f"⚠️ @backups command ignored - not a group chat")
+                return
+            
+            print(f"📋 @backups command received from {message.contact_name or message.from_phone}")
+            
+            # Check admin permissions
+            if not self._member_editor:
+                try:
+                    from app.services.member_editor_service import MemberEditorService
+                    self._member_editor = MemberEditorService()
+                except ImportError:
+                    await self._send_text_message(message.chat_id, "❌ Sistema de permisos no disponible")
+                    return
+            
+            # Check if sender has admin permissions
+            if not await self._member_editor._check_admin_permissions(message.from_phone, message.chat_id, message.chat_name or "Grupo"):
+                await self._send_text_message(message.chat_id, "❌ Solo los administradores pueden ver backups")
+                return
+            
+            # Lazy load backup service
+            if not self._backup_service:
+                try:
+                    from app.services.backup_service import BackupService
+                    self._backup_service = BackupService()
+                    print(f"✅ Backup service loaded")
+                except ImportError as e:
+                    print(f"❌ Backup service not available: {str(e)}")
+                    await self._send_text_message(message.chat_id, "❌ Servicio de backup no disponible")
+                    return
+            
+            # Get list of backups
+            backups = await self._backup_service.list_backups()
+            
+            if not backups:
+                await self._send_text_message(message.chat_id, "📋 No hay backups disponibles")
+                return
+            
+            # Format backup list
+            response = "📋 BACKUPS DISPONIBLES:\n\n"
+            
+            for i, backup in enumerate(backups[:10], 1):  # Show first 10
+                name = backup.get('name', 'Unknown')
+                location = backup.get('location', 'Unknown')
+                created_at = backup.get('created_at', 'Unknown')
+                size = backup.get('size', 0)
+                
+                # Format date
+                try:
+                    from datetime import datetime
+                    date_obj = datetime.fromisoformat(created_at)
+                    formatted_date = date_obj.strftime('%d/%m/%Y %H:%M')
+                except:
+                    formatted_date = created_at
+                
+                # Format size
+                if size > 1024 * 1024:
+                    size_str = f"{size / (1024 * 1024):.1f} MB"
+                elif size > 1024:
+                    size_str = f"{size / 1024:.1f} KB"
+                else:
+                    size_str = f"{size} bytes"
+                
+                location_emoji = "☁️" if location == "google_drive" else "💾"
+                
+                response += f"{i}. {location_emoji} {name}\n"
+                response += f"   📅 {formatted_date}\n"
+                response += f"   📊 {size_str}\n\n"
+            
+            if len(backups) > 10:
+                response += f"... y {len(backups) - 10} backups más\n\n"
+            
+            response += "💡 Usa @restore [nombre] para restaurar\n"
+            response += "💡 Usa @backup para crear nuevo backup"
+            
+            await self._send_text_message(message.chat_id, response)
+                
+        except Exception as e:
+            print(f"❌ Error processing @backups command: {str(e)}")
+            await self._send_text_message(message.chat_id, f"❌ Error procesando comando @backups: {str(e)}")
     
     async def _handle_test_command(self, message: WhatsAppMessage):
         """Handle TEST command - do blink pattern and send text response"""

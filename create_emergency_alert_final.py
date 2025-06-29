@@ -23,6 +23,7 @@ def create_emergency_alert(
     system_name: str = "Sistema de Alarma Comunitaria", 
     status_text: str = "ACTIVO",
     emergency_number: str = "SAMU 131",
+    member_data: dict = None,  # Rich member data from JSON database
     
     # === VISUAL CUSTOMIZATION PARAMETERS ===
     primary_color: str = "#1E3A8A",      # Dark blue
@@ -138,6 +139,21 @@ def create_emergency_alert(
         'text_secondary': '#94A3B8'     
     }
     
+    # Use member data if available to enhance content
+    if member_data:
+        contact_name = member_data.get("name", contact_name)
+        street_address = member_data.get("full_address", street_address)
+        
+        # Add medical info if available
+        if member_data.get("has_medical_conditions"):
+            medical_note = " (ATENCIÓN MÉDICA)"
+            contact_name += medical_note
+        
+        # Use group emergency contacts if available
+        group_contacts = member_data.get("group_emergency_contacts", {})
+        if group_contacts.get("samu"):
+            emergency_number = f"SAMU {group_contacts['samu']}"
+    
     # Layout with more generous spacing
     PADDING = 40
     ELEMENT_SPACING = 25
@@ -211,6 +227,14 @@ def create_emergency_alert(
         ("Reportado por", contact_name, colors['warning']),
         ("Contacto directo", phone_number, colors['primary'])
     ]
+    
+    # Add emergency contact if available
+    if member_data and member_data.get("emergency_contact") and member_data.get("emergency_contact") != "No registrado":
+        card_data.append(("Contacto emergencia", member_data["emergency_contact"], colors['danger']))
+    
+    # Add group emergency contact if available
+    if member_data and member_data.get("group_emergency_contacts", {}).get("group_emergency_contact"):
+        card_data.append(("Coordinador grupo", member_data["group_emergency_contacts"]["group_emergency_contact"], colors['success']))
     
     card_height = 70
     card_spacing = 15

@@ -21,7 +21,8 @@ async def execute_full_emergency_pipeline(
     group_name: str = "Grupo de Emergencia",
     device_id: str = "10011eafd1",
     blink_cycles: int = 3,
-    voice_text: str = None
+    voice_text: str = None,
+    use_member_data: bool = True
 ):
     """
     Execute complete emergency response pipeline:
@@ -43,14 +44,40 @@ async def execute_full_emergency_pipeline(
     try:
         from app.services.whatsapp_service import WhatsAppService
         from app.services.ewelink_service import EWeLinkService
+        from app.services.member_lookup_service import MemberLookupService
         
         whatsapp_service = WhatsAppService()
         ewelink_service = EWeLinkService()
+        member_lookup = MemberLookupService()
         
         print(f"✅ Servicios básicos inicializados")
     except Exception as e:
         print(f"❌ Error inicializando servicios básicos: {str(e)}")
         return False
+    
+    # Get comprehensive member data if available
+    member_data = None
+    if use_member_data and sender_phone and group_chat_id:
+        try:
+            print(f"🔍 Obteniendo datos del miembro desde base de datos...")
+            member_data = await member_lookup.get_member_emergency_data(
+                sender_phone, group_chat_id, group_name
+            )
+            
+            if member_data:
+                # Update variables with rich member data
+                sender_name = member_data.get("name", sender_name)
+                street_address = member_data.get("full_address", street_address)
+                
+                print(f"✅ Datos del miembro obtenidos:")
+                print(f"   👤 Nombre: {sender_name}")
+                print(f"   📍 Dirección: {street_address}")
+                print(f"   🩺 Info médica: {member_data.get('has_medical_conditions')}")
+                print(f"   🚨 Alta prioridad: {member_data.get('is_high_priority')}")
+            
+        except Exception as e:
+            print(f"⚠️ No se pudieron obtener datos del miembro: {str(e)}")
+            print(f"📝 Continuando con datos básicos del mensaje")
     
     print(f"\n🎯 INFORMACIÓN DE EMERGENCIA:")
     print(f"   🚨 Tipo: {incident_type}")
@@ -108,29 +135,60 @@ async def execute_full_emergency_pipeline(
         print(f"🤖 Generating intelligent emergency message with OpenAI...")
         
         try:
-            # Try to generate AI-enhanced message
+            # Try to generate AI-enhanced message with member data
             text_summary = await generate_intelligent_emergency_message(
                 incident_type=incident_type,
                 street_address=street_address,
                 sender_name=sender_name,
                 sender_phone=sender_phone,
                 emergency_number=emergency_number,
-                group_name=group_name
+                group_name=group_name,
+                member_data=member_data
             )
             print(f"✅ AI-generated emergency message created")
         except Exception as ai_error:
             print(f"⚠️ AI message generation failed: {str(ai_error)}")
             print(f"📝 Using fallback template message...")
             
-            # Fallback to template message
+            # Fallback to template message with member data if available
+            medical_info = ""
+            if member_data and member_data.get('has_medical_conditions'):
+                medical_info = f"\n🩺 INFO MÉDICA: {member_data.get('medical_info', '')}"
+            
+            evacuation_info = ""
+            if member_data and member_data.get('evacuation_assistance'):
+                evacuation_info = f"\n🚨 REQUIERE ASISTENCIA EVACUACIÓN"
+            
+            emergency_contact = ""
+            if member_data and member_data.get('emergency_contact') != "No registrado":
+                emergency_contact = f"\n📞 CONTACTO EMERGENCIA: {member_data.get('emergency_contact')}"
+            
+            # Get emergency numbers from member data
+            emergency_numbers = ""
+            if member_data and member_data.get('group_emergency_contacts'):
+                contacts = member_data['group_emergency_contacts']
+                emergency_numbers = f"""
+
+🚑 SAMU: {contacts.get('samu', '131')}
+🚒 BOMBEROS: {contacts.get('bomberos', '132')}
+👮 CARABINEROS: {contacts.get('carabineros', '133')}"""
+                
+                if contacts.get('group_emergency_contact'):
+                    emergency_numbers += f"\n📞 COORDINADOR GRUPO: {contacts['group_emergency_contact']}"
+            else:
+                emergency_numbers = f"""
+
+🚑 SAMU: 131
+🚒 BOMBEROS: 132
+👮 CARABINEROS: 133"""
+            
             text_summary = f"""🚨 EMERGENCIA ACTIVADA 🚨
 
 📋 TIPO: {incident_type}
 📍 UBICACIÓN: {street_address}
 👤 REPORTADO POR: {sender_name}
-📞 CONTACTO: {sender_phone}
+📞 CONTACTO: {sender_phone}{medical_info}{evacuation_info}{emergency_contact}{emergency_numbers}
 
-🚑 EMERGENCIA: {emergency_number}
 ⏰ HORA: {datetime.now().strftime('%H:%M:%S')}
 📅 FECHA: {datetime.now().strftime('%d/%m/%Y')}
 
@@ -162,7 +220,7 @@ async def execute_full_emergency_pipeline(
         print(f"🖼️ Generating emergency alert image with dynamic data...")
         print(f"📊 Parameters: incident_type='{incident_type}', sender_name='{sender_name}', sender_phone='{sender_phone}'")
         
-        # Create emergency alert with populated fields
+        # Create emergency alert with member data if available
         image_path = create_emergency_alert(
             street_address=street_address,
             phone_number=sender_phone,
@@ -172,7 +230,8 @@ async def execute_full_emergency_pipeline(
             alert_title="EMERGENCIA",
             emergency_number=emergency_number,
             show_night_sky=True,
-            show_background_city=True
+            show_background_city=True,
+            member_data=member_data  # Pass member data for enhanced content
         )
         
         print(f"🖼️ Generated image path: {image_path}")
@@ -294,7 +353,7 @@ async def execute_full_emergency_pipeline(
         print(f"🎬 Generating animated emergency alert GIF with dynamic data...")
         print(f"📊 GIF Parameters: incident_type='{incident_type}', sender_name='{sender_name}', sender_phone='{sender_phone}'")
         
-        # Create animated emergency alert with populated fields
+        # Create animated emergency alert with member data if available
         gif_path = create_animated_emergency_alert_gif(
             street_address=street_address,
             phone_number=sender_phone,
@@ -305,7 +364,8 @@ async def execute_full_emergency_pipeline(
             emergency_number=emergency_number,
             num_frames=12,
             frame_duration=150,
-            show_night_sky=True
+            show_night_sky=True,
+            member_data=member_data  # Pass member data for enhanced content
         )
         
         print(f"🎬 Generated GIF path: {gif_path}")
@@ -336,6 +396,30 @@ async def execute_full_emergency_pipeline(
         print(f"❌ Error enviando GIF animado: {str(e)}")
         print(f"⚠️ Continuando sin GIF...")
         failed_steps.append("Animated Emergency GIF")
+    
+    # === AUDIT LOGGING ===
+    try:
+        from app.services.audit_service import AuditService
+        audit_service = AuditService()
+        
+        await audit_service.log_emergency_event(
+            incident_type=incident_type,
+            group_chat_id=group_chat_id,
+            group_name=group_name,
+            reporter_phone=sender_phone,
+            reporter_name=sender_name,
+            actions_taken=success_steps,
+            success_rate=(len(success_steps) / (len(success_steps) + len(failed_steps))) * 100 if (len(success_steps) + len(failed_steps)) > 0 else 0,
+            member_data_used=use_member_data and member_data is not None,
+            additional_info={
+                "failed_steps": failed_steps,
+                "device_id": device_id,
+                "blink_cycles": blink_cycles
+            }
+        )
+        print(f"✅ Emergency event logged to audit system")
+    except Exception as e:
+        print(f"⚠️ Could not log emergency event to audit: {str(e)}")
     
     # === PIPELINE SUMMARY ===
     print(f"\n🏆" + "="*80)
@@ -383,7 +467,8 @@ async def generate_intelligent_emergency_message(
     sender_name: str,
     sender_phone: str,
     emergency_number: str,
-    group_name: str
+    group_name: str,
+    member_data: dict = None
 ) -> str:
     """
     Generate intelligent, context-aware emergency message using OpenAI
@@ -397,6 +482,31 @@ async def generate_intelligent_emergency_message(
     # Create intelligent prompt based on incident type
     current_time = datetime.now()
     
+    # Add member data to prompt if available
+    member_info = ""
+    if member_data:
+        contacts = member_data.get('group_emergency_contacts', {})
+        member_info = f"""
+MEMBER DATABASE INFO:
+- Full Name: {member_data.get('name', 'N/A')}
+- Complete Address: {member_data.get('full_address', 'N/A')}
+- Emergency Contact: {member_data.get('emergency_contact', 'N/A')}
+- Medical Info: {member_data.get('medical_info', 'N/A')}
+- Blood Type: {member_data.get('blood_type', 'N/A')}
+- Medical Conditions: {', '.join(member_data.get('medical_conditions', []))}
+- Allergies: {', '.join(member_data.get('allergies', []))}
+- Evacuation Assistance Needed: {member_data.get('evacuation_assistance', False)}
+- Special Needs: {', '.join(member_data.get('special_needs', []))}
+- Is High Priority: {member_data.get('is_high_priority', False)}
+- Total Group Members: {member_data.get('total_members', 'Unknown')}
+
+GROUP EMERGENCY CONTACTS:
+- SAMU: {contacts.get('samu', '131')}
+- BOMBEROS: {contacts.get('bomberos', '132')}
+- CARABINEROS: {contacts.get('carabineros', '133')}
+- Group Emergency Contact: {contacts.get('group_emergency_contact', 'Not configured')}
+- Emergency Coordinator: {contacts.get('emergency_coordinator', 'Not configured')}"""
+    
     prompt = f"""You are an emergency response system AI for a community alert network in Chile. Generate a professional, urgent, and helpful emergency alert message in Spanish.
 
 EMERGENCY DETAILS:
@@ -407,24 +517,35 @@ EMERGENCY DETAILS:
 - Emergency Services: {emergency_number}
 - Community Group: {group_name}
 - Time: {current_time.strftime('%H:%M:%S')}
-- Date: {current_time.strftime('%d/%m/%Y')}
+- Date: {current_time.strftime('%d/%m/%Y')}{member_info}
 
 REQUIREMENTS:
 1. Start with 🚨 EMERGENCIA ACTIVADA 🚨
 2. Use appropriate emojis for the incident type
 3. Include specific safety instructions based on the emergency type
-4. Keep it under 300 words
+4. Keep it under 350 words
 5. Use urgent but professional tone
 6. Include all provided details
 7. End with community safety reminder
 8. Format for WhatsApp readability
+9. If member has medical conditions or special needs, highlight this prominently
+10. If evacuation assistance is needed, emphasize this critically
 
 INCIDENT-SPECIFIC INSTRUCTIONS:
 - INCENDIO: Fire safety, evacuation routes, smoke precautions
-- EMERGENCIA MÉDICA: Medical emergency protocols, space for ambulances
+- EMERGENCIA MÉDICA: Medical emergency protocols, space for ambulances, mention medical history if available
 - ACCIDENTE: Traffic safety, avoid area, help emergency services
 - TERREMOTO: Earthquake safety, aftershock warnings, safe areas
 - EMERGENCIA GENERAL: General emergency protocols
+
+SPECIAL INSTRUCTIONS:
+- If member has medical conditions, include "🩺 ATENCIÓN MÉDICA: [conditions]"
+- If evacuation assistance needed, include "🚨 REQUIERE ASISTENCIA PARA EVACUACIÓN"  
+- If high priority member, emphasize urgency
+- Include emergency contact if available and different from reporter
+- ALWAYS include all emergency services: SAMU, BOMBEROS, CARABINEROS with their numbers
+- Include group emergency contact and coordinator if configured
+- Format emergency numbers clearly with emojis (🚑 🚒 👮 📞)
 
 Generate the complete message now:"""
 

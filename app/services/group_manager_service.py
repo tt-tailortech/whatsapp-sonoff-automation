@@ -20,7 +20,9 @@ class GroupManagerService:
         self.service = None
         self.alarm_system_folder_id = None
         self.member_databases_folder_id = None
+        self._encryption_service = None
         self._initialize_google_drive()
+        self._initialize_encryption()
     
     def _initialize_google_drive(self):
         """Initialize Google Drive API connection"""
@@ -106,6 +108,19 @@ class GroupManagerService:
         except Exception as e:
             print(f"❌ Google Drive initialization error: {str(e)}")
             return False
+    
+    def _initialize_encryption(self):
+        """Initialize encryption service for sensitive data"""
+        try:
+            from app.services.encryption_service import EncryptionService
+            self._encryption_service = EncryptionService()
+            print(f"🔐 Encryption service initialized")
+        except ImportError as e:
+            print(f"⚠️ Encryption service not available: {str(e)}")
+            self._encryption_service = None
+        except Exception as e:
+            print(f"❌ Error initializing encryption: {str(e)}")
+            self._encryption_service = None
     
     def sanitize_folder_name(self, group_name: str) -> str:
         """
@@ -242,6 +257,13 @@ class GroupManagerService:
                     "emergency_alerts_enabled": True,
                     "auto_member_detection": True,
                     "require_admin_approval": False
+                },
+                "emergency_contacts": {
+                    "samu": "131",
+                    "bomberos": "132", 
+                    "carabineros": "133",
+                    "group_emergency_contact": "+56912345678",
+                    "emergency_coordinator": ""
                 }
             }
             
@@ -372,6 +394,64 @@ class GroupManagerService:
         except Exception as e:
             print(f"❌ Error getting group member data: {str(e)}")
             return None
+    
+    async def update_group_member_data(self, group_chat_id: str, group_name: str, updated_data: Dict[str, Any]) -> bool:
+        """
+        Update group member data in Google Drive
+        """
+        if not self.service or not self.member_databases_folder_id:
+            return False
+        
+        try:
+            folder_name = self.sanitize_folder_name(group_name)
+            
+            # Find group folder
+            group_folders = self.service.files().list(
+                q=f"'{self.member_databases_folder_id}' in parents and name='{folder_name}' and mimeType='application/vnd.google-apps.folder'",
+                fields="files(id, name)"
+            ).execute()
+            
+            if not group_folders.get('files'):
+                print(f"❌ Group folder not found: {folder_name}")
+                return False
+            
+            group_folder_id = group_folders['files'][0]['id']
+            
+            # Find member JSON file
+            member_files = self.service.files().list(
+                q=f"'{group_folder_id}' in parents and name='{folder_name}_members.json'",
+                fields="files(id, name)"
+            ).execute()
+            
+            if not member_files.get('files'):
+                print(f"❌ Member file not found: {folder_name}_members.json")
+                return False
+            
+            member_file_id = member_files['files'][0]['id']
+            
+            # Update last_updated timestamp
+            updated_data["last_updated"] = datetime.now().isoformat()
+            
+            # Convert to JSON
+            json_content = json.dumps(updated_data, indent=2, ensure_ascii=False)
+            
+            # Update file in Google Drive
+            media = MediaIoBaseUpload(
+                io.BytesIO(json_content.encode('utf-8')),
+                mimetype='application/json'
+            )
+            
+            self.service.files().update(
+                fileId=member_file_id,
+                media_body=media
+            ).execute()
+            
+            print(f"✅ Updated member data for group: {group_name}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error updating group member data: {str(e)}")
+            return False
     
     def is_group_message(self, chat_id: str) -> bool:
         """
