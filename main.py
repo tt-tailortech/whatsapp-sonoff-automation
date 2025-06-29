@@ -73,34 +73,84 @@ async def send_test_message():
         if not SERVICES_INITIALIZED:
             return JSONResponse(content={"status": "error", "message": "Services not initialized"}, status_code=503)
         
-        # Waldo's number from the logs
-        phone_number = "56940035815@s.whatsapp.net"
-        message = "🤖 Manual test message from alarm system server! This message was sent via the /send-test-message endpoint."
+        # Test different phone number formats
+        formats_to_test = [
+            "56940035815",                  # Just the number
+            "+56940035815",                # With country code
+            "56940035815@s.whatsapp.net",  # Current format
+            "56940035815@c.us"             # Alternative format
+        ]
         
-        print(f"📤 Manual send request to {phone_number}")
-        print(f"📤 Message: {message}")
+        results = []
         
-        success = await whatsapp_service.send_text_message(phone_number, message)
+        for phone_format in formats_to_test:
+            message = f"🤖 Testing format: {phone_format} - Server test message!"
+            
+            print(f"📤 Testing format: {phone_format}")
+            print(f"📤 Message: {message}")
+            
+            success = await whatsapp_service.send_text_message(phone_format, message)
+            
+            result = {
+                "phone_format": phone_format,
+                "success": success,
+                "message": message
+            }
+            results.append(result)
+            
+            print(f"📤 Result for {phone_format}: {'✅ SUCCESS' if success else '❌ FAILED'}")
+            
+            if success:
+                # If one format works, return success immediately
+                return JSONResponse(content={
+                    "status": "success", 
+                    "message": f"Message sent successfully using format: {phone_format}",
+                    "working_format": phone_format,
+                    "all_results": results
+                })
         
-        if success:
-            return JSONResponse(content={
-                "status": "success", 
-                "message": "Message sent to Waldo successfully!",
-                "to": phone_number,
-                "text": message
-            })
-        else:
-            return JSONResponse(content={
-                "status": "error", 
-                "message": "Failed to send message to Waldo",
-                "to": phone_number
-            })
+        # If no format worked, return all results for debugging
+        return JSONResponse(content={
+            "status": "error", 
+            "message": "All phone number formats failed",
+            "all_results": results,
+            "note": "Check server logs for detailed WHAPI API responses"
+        })
             
     except Exception as e:
         print(f"❌ Manual send error: {str(e)}")
         return JSONResponse(content={
             "status": "error", 
             "message": f"Exception occurred: {str(e)}"
+        }, status_code=500)
+
+@app.get("/whapi-debug")
+async def whapi_debug():
+    """Debug WHAPI configuration and test basic connectivity"""
+    try:
+        if not SERVICES_INITIALIZED:
+            return JSONResponse(content={"status": "error", "message": "Services not initialized"}, status_code=503)
+        
+        debug_info = {
+            "whapi_base_url": whatsapp_service.base_url,
+            "whapi_token_preview": whatsapp_service.token[:20] + "..." if whatsapp_service.token else "None",
+            "processed_message_ids_count": len(whatsapp_service.processed_message_ids),
+            "recent_processed_ids": list(whatsapp_service.processed_message_ids)[-5:] if whatsapp_service.processed_message_ids else []
+        }
+        
+        print(f"🔍 WHAPI Debug Info: {debug_info}")
+        
+        return JSONResponse(content={
+            "status": "success",
+            "debug_info": debug_info,
+            "note": "This shows the current WHAPI configuration on the server"
+        })
+        
+    except Exception as e:
+        print(f"❌ WHAPI debug error: {str(e)}")
+        return JSONResponse(content={
+            "status": "error", 
+            "message": f"Debug failed: {str(e)}"
         }, status_code=500)
 
 @app.post("/device-register")
