@@ -70,8 +70,15 @@ class MemberEditorService:
     async def _check_admin_permissions(self, sender_phone: str, group_chat_id: str, group_name: str) -> bool:
         """Check if sender has admin permissions"""
         try:
+            # DEVELOPMENT MODE: Temporary admin override for testing
+            development_admins = ["19012976001"]  # Your phone number
+            if sender_phone in development_admins:
+                print(f"🔧 DEVELOPMENT ADMIN OVERRIDE: {sender_phone} granted admin access")
+                return True
+            
             member_data = await self.group_manager.get_group_member_data(group_chat_id, group_name)
             if not member_data:
+                print(f"⚠️ No member data found for group, denying admin access")
                 return False
             
             # Check if sender is in admins list
@@ -83,6 +90,7 @@ class MemberEditorService:
             sender_data = members.get(sender_phone, {})
             has_admin_flag = sender_data.get("emergency_info", {}).get("is_admin", False)
             
+            print(f"🔍 Admin check for {sender_phone}: in_admins={is_admin}, has_flag={has_admin_flag}")
             return is_admin or has_admin_flag
             
         except Exception as e:
