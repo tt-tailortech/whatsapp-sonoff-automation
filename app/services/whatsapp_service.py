@@ -38,10 +38,11 @@ class WhatsAppService:
                             message = after_update["last_message"]
                             print(f"📨 Found last_message: {message}")
                             
-                            # Skip messages from us (from_me: True)
-                            if message.get("from_me", False):
-                                print("📨 Skipping message from us (from_me: True)")
-                                continue
+                            # Temporarily bypass from_me check for testing
+                            # if message.get("from_me", False):
+                            #     print("📨 Skipping message from us (from_me: True)")
+                            #     continue
+                            print(f"📨 Processing message (from_me: {message.get('from_me', False)})")
                                 
                             # Only process text messages
                             if message.get("type") == "text":
@@ -78,10 +79,11 @@ class WhatsAppService:
                 # Direct messages format
                 message = payload["messages"][0]
                 
-                # Skip messages from us
-                if message.get("from_me", False):
-                    print("📨 Skipping direct message from us (from_me: True)")
-                    return None
+                # Temporarily bypass from_me check for testing
+                # if message.get("from_me", False):
+                #     print("📨 Skipping direct message from us (from_me: True)")
+                #     return None
+                print(f"📨 Processing direct message (from_me: {message.get('from_me', False)})")
                 
                 if message.get("type") == "text":
                     return WhatsAppMessage(
