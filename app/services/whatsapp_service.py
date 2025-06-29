@@ -215,18 +215,23 @@ class WhatsAppService:
             print(f"📤 Payload: {payload}")
             print(f"📤 Headers: {self.headers}")
             
-            async with httpx.AsyncClient(timeout=15.0) as client:  # Increased timeout
-                response = await client.post(url, headers=self.headers, json=payload)
-                
-                print(f"📤 Response status: {response.status_code}")
-                print(f"📤 Response body: {response.text}")
-                
-                if response.status_code == 200:
-                    print(f"✅ Text message sent to {phone_number}")
-                    return True
-                else:
-                    print(f"❌ Failed to send text message: {response.status_code} - {response.text}")
-                    return False
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:  # Increased timeout for WHAPI
+                    response = await client.post(url, headers=self.headers, json=payload)
+                    
+                    print(f"📤 Response status: {response.status_code}")
+                    print(f"📤 Response body: {response.text}")
+                    
+                    if response.status_code == 200:
+                        print(f"✅ Text message sent to {phone_number}")
+                        return True
+                    else:
+                        print(f"❌ Failed to send text message: {response.status_code} - {response.text}")
+                        return False
+            except Exception as http_err:
+                print(f"❌ HTTP request failed: {str(http_err)}")
+                print(f"❌ HTTP error type: {type(http_err)}")
+                raise http_err
                     
         except Exception as e:
             print(f"❌ Send text message error: {str(e)} | To: {phone_number} | Message: {message[:50]}...")
