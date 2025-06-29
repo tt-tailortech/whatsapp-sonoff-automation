@@ -19,6 +19,25 @@ async def emergency_test():
 async def gif_test():
     return {"message": "GIF endpoint accessible", "status": "ready"}
 
+@app.get("/debug-status")
+async def debug_status():
+    """Simple debug endpoint to check server status"""
+    import sys
+    import os
+    
+    return {
+        "server_status": "running",
+        "python_version": sys.version,
+        "working_directory": os.getcwd(),
+        "services_initialized": SERVICES_INITIALIZED,
+        "available_commands": getattr(command_processor, 'valid_commands', []) if command_processor else [],
+        "environment_check": {
+            "whapi_token": "configured" if os.getenv("WHAPI_TOKEN") else "missing",
+            "openai_key": "configured" if os.getenv("OPENAI_API_KEY") else "missing",
+            "ewelink_email": "configured" if os.getenv("EWELINK_EMAIL") else "missing"
+        }
+    }
+
 # Initialize services with error handling
 try:
     from app.config import settings
@@ -54,12 +73,26 @@ try:
         except Exception as e:
             print(f"⚠️ Could not create emergency alert image: {str(e)}")
 
-    # Initialize services
+    # Initialize services with individual error handling
+    print("🔄 Initializing WhatsApp service...")
     whatsapp_service = WhatsAppService()
+    print("✅ WhatsApp service initialized")
+    
+    print("🔄 Initializing Voice service...")
     voice_service = VoiceService()  # Re-enabled
+    print("✅ Voice service initialized")
+    
+    print("🔄 Initializing Image service...")
     image_service = ImageService() if IMAGE_SERVICE_AVAILABLE else None  # For image processing
+    print(f"✅ Image service: {'initialized' if IMAGE_SERVICE_AVAILABLE else 'disabled'}")
+    
+    print("🔄 Initializing eWeLink service...")
     ewelink_service = EWeLinkService()
+    print("✅ eWeLink service initialized")
+    
+    print("🔄 Initializing Command processor...")
     command_processor = CommandProcessor(whatsapp_service, ewelink_service)
+    print("✅ Command processor initialized")
     
     # Display configured trigger commands
     print("\n🚨" + "="*60)
@@ -150,9 +183,17 @@ async def health_check():
 async def whatsapp_webhook(request: Request):
     try:
         if not SERVICES_INITIALIZED:
-            return JSONResponse(content={"status": "error", "message": "Services not initialized"}, status_code=503)
+            error_msg = "Services not initialized - check server startup logs"
+            print(f"🚨 Webhook rejected: {error_msg}")
+            return JSONResponse(content={"status": "error", "message": error_msg}, status_code=503)
+        
+        if not command_processor:
+            error_msg = "Command processor not available"
+            print(f"🚨 Webhook rejected: {error_msg}")
+            return JSONResponse(content={"status": "error", "message": error_msg}, status_code=503)
             
         payload = await request.json()
+        print(f"📨 Webhook received - processing with SOS system...")
         
         # Process the incoming WhatsApp message
         await command_processor.process_whatsapp_message(payload)
@@ -160,8 +201,9 @@ async def whatsapp_webhook(request: Request):
         return JSONResponse(content={"status": "success"}, status_code=200)
     
     except Exception as e:
-        print(f"Webhook error: {str(e)}")
-        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+        error_msg = f"Webhook processing error: {str(e)}"
+        print(f"❌ {error_msg}")
+        return JSONResponse(content={"status": "error", "message": error_msg}, status_code=500)
 
 @app.get("/send-test-message")
 async def send_test_message():

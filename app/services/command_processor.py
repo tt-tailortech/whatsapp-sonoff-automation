@@ -83,8 +83,14 @@ class CommandProcessor:
             print(f"🚨 SOS command received from {message.contact_name or message.from_phone}")
             print(f"🚨 Incident type: {incident_type}")
             
-            # Import emergency pipeline
-            from create_full_emergency_pipeline import execute_full_emergency_pipeline
+            # Import emergency pipeline with fallback
+            try:
+                from create_full_emergency_pipeline import execute_full_emergency_pipeline
+            except ImportError as e:
+                print(f"⚠️ Emergency pipeline not available: {str(e)}")
+                # Fall back to basic text alert
+                await self._send_text_message(message.chat_id, f"🚨 EMERGENCIA ACTIVADA: {incident_type}")
+                return
             
             # Extract group info
             group_chat_id = message.chat_id
