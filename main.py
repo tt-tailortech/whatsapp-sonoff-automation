@@ -15,6 +15,10 @@ app = FastAPI(
 async def emergency_test():
     return {"message": "EMERGENCY TEST WORKS", "time": "now"}
 
+@app.get("/gif-test")
+async def gif_test():
+    return {"message": "GIF endpoint accessible", "status": "ready"}
+
 # Initialize services with error handling
 try:
     from app.config import settings
