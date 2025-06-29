@@ -39,6 +39,16 @@ async def debug_status():
     }
 
 # Initialize services with error handling
+SERVICES_INITIALIZED = False  # Define early to avoid scope issues
+
+# Initialize service variables to avoid scope issues
+whatsapp_service = None
+voice_service = None
+image_service = None
+ewelink_service = None
+command_processor = None
+IMAGE_SERVICE_AVAILABLE = False
+
 try:
     from app.config import settings
     from app.models import WhatsAppWebhookPayload
@@ -134,13 +144,8 @@ except Exception as e:
     print(f"🔧 Check server configuration and restart")
     print(f"🚨" + "="*60 + "\n")
     
+    # Variables already initialized above, just ensure they stay None
     SERVICES_INITIALIZED = False
-    whatsapp_service = None
-    voice_service = None  # Re-enabled
-    image_service = None  # For image processing
-    ewelink_service = None
-    command_processor = None
-    IMAGE_SERVICE_AVAILABLE = False
 
 @app.get("/")
 async def root():
