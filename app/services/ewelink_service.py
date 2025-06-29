@@ -268,11 +268,19 @@ class EWeLinkService:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, headers=headers)
                 
+                print(f"📡 Device API Response Status: {response.status_code}")
+                print(f"📄 Device API Response Body: {response.text}")
+                
                 if response.status_code == 200:
                     data = response.json()
+                    print(f"📊 Device API Data: {data}")
+                    
                     if data.get("error") == 0:
+                        thing_list = data.get("data", {}).get("thingList", [])
+                        print(f"📱 Raw device list: {thing_list}")
+                        
                         devices = []
-                        for device_data in data.get("data", {}).get("thingList", []):
+                        for device_data in thing_list:
                             device = EWeLinkDevice(
                                 deviceid=device_data.get("deviceid", ""),
                                 name=device_data.get("name", ""),
@@ -281,12 +289,17 @@ class EWeLinkService:
                                 params=device_data.get("params", {})
                             )
                             devices.append(device)
+                            print(f"✅ Found device: {device.name} (ID: {device.deviceid})")
+                        
+                        print(f"📊 Total devices parsed: {len(devices)}")
                         return devices
                     else:
-                        print(f"Get devices error: {data.get('msg', 'Unknown error')}")
+                        print(f"❌ Get devices API error: {data.get('msg', 'Unknown error')}")
+                        print(f"🔍 Full error response: {data}")
                         return []
                 else:
-                    print(f"Get devices failed: {response.status_code} - {response.text}")
+                    print(f"❌ Get devices HTTP error: {response.status_code}")
+                    print(f"📄 HTTP error response: {response.text}")
                     return []
                     
         except Exception as e:
