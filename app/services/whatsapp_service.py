@@ -13,6 +13,8 @@ class WhatsAppService:
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json"
         }
+        self.processed_message_ids = set()  # Track processed message IDs
+        self.max_processed_ids = 1000  # Limit to prevent memory issues
     
     def parse_whatsapp_webhook(self, payload: Dict[str, Any]) -> Optional[WhatsAppMessage]:
         """
@@ -41,9 +43,25 @@ class WhatsAppService:
                     return None
                 
                 if message.get("type") == "text":
+                    message_id = message.get("id", "")
+                    
+                    # Check for duplicate message
+                    if message_id in self.processed_message_ids:
+                        print(f"📨 Skipping duplicate message ID: {message_id}")
+                        return None
+                    
+                    # Mark message as processed
+                    self.processed_message_ids.add(message_id)
+                    
+                    # Clean up old IDs if set gets too large
+                    if len(self.processed_message_ids) > self.max_processed_ids:
+                        # Keep only the most recent 500 IDs
+                        self.processed_message_ids = set(list(self.processed_message_ids)[-500:])
+                    
                     print(f"📨 Processing incoming text message")
+                    
                     return WhatsAppMessage(
-                        id=message.get("id", ""),
+                        id=message_id,
                         from_phone=message.get("from", ""),
                         chat_id=message.get("chat_id", ""),
                         text=message.get("text", {}).get("body", "") if isinstance(message.get("text"), dict) else message.get("text", ""),
@@ -73,9 +91,19 @@ class WhatsAppService:
                                 continue
                                 
                             if message.get("type") == "text":
+                                message_id = message.get("id", "")
+                                
+                                # Check for duplicate message
+                                if message_id in self.processed_message_ids:
+                                    print(f"📨 Skipping duplicate chat update message ID: {message_id}")
+                                    continue
+                                
+                                # Mark message as processed
+                                self.processed_message_ids.add(message_id)
                                 print(f"📨 Processing chat update incoming message")
+                                
                                 return WhatsAppMessage(
-                                    id=message.get("id", ""),
+                                    id=message_id,
                                     from_phone=message.get("from", ""),
                                     chat_id=message.get("chat_id", ""),
                                     text=message.get("text", {}).get("body", "") if isinstance(message.get("text"), dict) else message.get("text", ""),
