@@ -247,7 +247,7 @@ class WhatsAppService:
                 return False
             
             file_size = os.path.getsize(audio_file_path)
-            url = f"{self.base_url}/messages/voice"
+            url = f"{self.base_url}/sendmessagevoice"
             
             print(f"🎤 Sending voice message (Base64) to {phone_number}")
             print(f"   File: {audio_file_path} ({file_size} bytes)")
@@ -301,7 +301,7 @@ class WhatsAppService:
                 return False
             
             file_size = os.path.getsize(audio_file_path)
-            url = f"{self.base_url}/messages/voice"
+            url = f"{self.base_url}/sendmessagevoice"
             
             print(f"🎤 Sending voice message (File Upload) to {phone_number}")
             print(f"   File: {audio_file_path} ({file_size} bytes)")
@@ -347,6 +347,96 @@ class WhatsAppService:
                         
         except Exception as e:
             print(f"❌ Send voice message error (File Upload): {str(e)} | File: {audio_file_path}")
+            return False
+    
+    async def send_voice_message_via_upload_media(self, phone_number: str, audio_file_path: str) -> bool:
+        """
+        Send voice message using WHAPI's /uploadmedia + /sendmessagevoice approach
+        """
+        try:
+            if not os.path.exists(audio_file_path):
+                print(f"❌ Audio file not found: {audio_file_path}")
+                return False
+            
+            file_size = os.path.getsize(audio_file_path)
+            
+            print(f"🎤 Sending voice message (Upload Media) to {phone_number}")
+            print(f"   File: {audio_file_path} ({file_size} bytes)")
+            
+            # Step 1: Upload media file first
+            upload_url = f"{self.base_url}/uploadmedia"
+            
+            headers_upload = {
+                "Authorization": f"Bearer {self.token}"
+            }
+            
+            with open(audio_file_path, "rb") as audio_file:
+                files = {
+                    "media": ("voice.ogg", audio_file.read(), "audio/ogg")
+                }
+                
+                print(f"🎤 Step 1: Uploading media to {upload_url}")
+                
+                try:
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        upload_response = await client.post(upload_url, headers=headers_upload, files=files)
+                        
+                        print(f"🎤 Upload Response status: {upload_response.status_code}")
+                        print(f"🎤 Upload Response body: {upload_response.text}")
+                        
+                        if upload_response.status_code != 200:
+                            print(f"❌ Media upload failed: {upload_response.status_code}")
+                            return False
+                        
+                        # Parse media ID from response
+                        upload_data = upload_response.json()
+                        media_id = upload_data.get("media_id") or upload_data.get("id")
+                        
+                        if not media_id:
+                            print(f"❌ No media ID in upload response: {upload_data}")
+                            return False
+                        
+                        print(f"✅ Media uploaded successfully, ID: {media_id}")
+                        
+                except Exception as upload_err:
+                    print(f"❌ Upload request failed: {str(upload_err)}")
+                    return False
+            
+            # Step 2: Send voice message using media ID
+            send_url = f"{self.base_url}/sendmessagevoice"
+            
+            payload = {
+                "to": phone_number,
+                "media": media_id
+            }
+            
+            headers_send = {
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json"
+            }
+            
+            print(f"🎤 Step 2: Sending voice message to {send_url}")
+            print(f"🎤 Payload: {payload}")
+            
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    send_response = await client.post(send_url, headers=headers_send, json=payload)
+                    
+                    print(f"🎤 Send Response status: {send_response.status_code}")
+                    print(f"🎤 Send Response body: {send_response.text}")
+                    
+                    if send_response.status_code == 200:
+                        print(f"✅ Voice message sent via Upload Media to {phone_number}")
+                        return True
+                    else:
+                        print(f"❌ Failed to send voice message via Upload Media: {send_response.status_code}")
+                        return False
+            except Exception as send_err:
+                print(f"❌ Send request failed: {str(send_err)}")
+                return False
+                        
+        except Exception as e:
+            print(f"❌ Send voice message error (Upload Media): {str(e)} | File: {audio_file_path}")
             return False
     
     async def get_account_info(self) -> Dict[str, Any]:

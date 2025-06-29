@@ -179,19 +179,40 @@ async def send_voice_message():
         
         print(f"✅ Voice file generated: {voice_file}")
         
-        # Step 2: Test both WhatsApp voice sending methods
+        # Step 2: Test all WhatsApp voice sending methods
         results = []
         
-        # Method 1: Base64 encoding
-        print(f"📤 Testing Method 1: Base64 encoding...")
-        success1 = await whatsapp_service.send_voice_message(phone_number, voice_file)
+        # Method 1: Upload Media + Send Voice (WHAPI recommended)
+        print(f"📤 Testing Method 1: Upload Media + Send Voice...")
+        success1 = await whatsapp_service.send_voice_message_via_upload_media(phone_number, voice_file)
         results.append({
-            "method": "base64_encoding",
+            "method": "upload_media_then_send",
             "success": success1
         })
         
         if success1:
-            print(f"✅ Method 1 (Base64) succeeded!")
+            print(f"✅ Method 1 (Upload Media) succeeded!")
+            voice_service.cleanup_audio_file(voice_file)
+            return JSONResponse(content={
+                "status": "success",
+                "message": "Voice message sent successfully via Upload Media method",
+                "phone_number": phone_number,
+                "text": test_text,
+                "voice_file": voice_file,
+                "method_used": "upload_media_then_send",
+                "all_results": results
+            })
+        
+        # Method 2: Base64 encoding (corrected endpoint)
+        print(f"📤 Testing Method 2: Base64 encoding...")
+        success2 = await whatsapp_service.send_voice_message(phone_number, voice_file)
+        results.append({
+            "method": "base64_encoding",
+            "success": success2
+        })
+        
+        if success2:
+            print(f"✅ Method 2 (Base64) succeeded!")
             voice_service.cleanup_audio_file(voice_file)
             return JSONResponse(content={
                 "status": "success",
@@ -203,18 +224,18 @@ async def send_voice_message():
                 "all_results": results
             })
         
-        # Method 2: File upload (if base64 failed)
-        print(f"📤 Testing Method 2: File upload...")
-        success2 = await whatsapp_service.send_voice_message_with_file_upload(phone_number, voice_file)
+        # Method 3: File upload (corrected endpoint)
+        print(f"📤 Testing Method 3: File upload...")
+        success3 = await whatsapp_service.send_voice_message_with_file_upload(phone_number, voice_file)
         results.append({
             "method": "file_upload",
-            "success": success2
+            "success": success3
         })
         
         # Cleanup
         voice_service.cleanup_audio_file(voice_file)
         
-        if success2:
+        if success3:
             return JSONResponse(content={
                 "status": "success",
                 "message": "Voice message sent successfully via File Upload method",
