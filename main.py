@@ -70,7 +70,7 @@ except Exception as e:
 
 @app.get("/")
 async def root():
-    return {"message": "WhatsApp-Sonoff TEST Automation System", "status": "running"}
+    return {"message": "WhatsApp-Sonoff TEST Automation System", "status": "running", "deployment_test": "UPDATED_VERSION"}
 
 @app.get("/health")
 async def health_check():
