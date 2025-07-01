@@ -54,6 +54,10 @@ class CommandProcessor:
             # Cache message for @tailor command (before processing commands)
             self._cache_message(message)
             
+            # Auto-detect and add new members to database (groups only)
+            if message.chat_id.endswith("@g.us"):
+                await self._auto_detect_new_member(message)
+            
             # Then process the command
             print(f"🔄 WEBHOOK DEBUG - About to process command...")
             await self._process_command(message)
@@ -1079,6 +1083,7 @@ Comandos Disponibles:
 Funcionalidades del Sistema:
 - Pipeline de Emergencia: Dispositivo parpadea → Texto → Imagen → Voz
 - Base de Datos: Google Drive con datos cifrados de miembros
+- Auto-Detección: Nuevos miembros se agregan automáticamente al escribir
 - Dispositivos Sonoff: Control remoto de switches/alarmas
 - IA Inteligente: OpenAI para mensajes y respuestas de emergencia
 - Webhooks WhatsApp: WHAPI.cloud para integración
@@ -1178,3 +1183,117 @@ Responde como Tailor, su vecino amigable. ¡Sé natural, cálido y útil!"""
         except Exception as e:
             print(f"❌ OpenAI request error: {str(e)}")
             raise e
+    
+    async def _auto_detect_new_member(self, message: WhatsAppMessage):
+        """Automatically detect and add new group members to the database"""
+        try:
+            print(f"👥 AUTO-DETECT - Checking member: {message.from_phone} in {message.chat_name}")
+            
+            # Skip bot's own messages (don't add the bot as a member)
+            # You can add your bot's phone number here to exclude it
+            bot_numbers = [
+                # Add your bot's phone numbers here if needed
+                # "56999999999",  # Example bot number
+            ]
+            
+            if message.from_phone in bot_numbers:
+                print(f"👥 AUTO-DETECT - Skipping bot number: {message.from_phone}")
+                return
+            
+            # Get current member data
+            try:
+                from app.services.group_manager_service import GroupManagerService
+                group_manager = GroupManagerService()
+                
+                member_data = await group_manager.get_group_member_data(
+                    message.chat_id, 
+                    message.chat_name or "Unknown Group"
+                )
+                
+                if not member_data:
+                    print(f"👥 AUTO-DETECT - No group database found, member will be added when group is initialized")
+                    return
+                
+                # Check if member already exists
+                members = member_data.get("members", {})
+                if message.from_phone in members:
+                    print(f"👥 AUTO-DETECT - Member {message.from_phone} already exists")
+                    return
+                
+                # Add new member with basic information
+                print(f"🎯 AUTO-DETECT - Adding new member: {message.contact_name} ({message.from_phone})")
+                
+                new_member = {
+                    "name": message.contact_name or "Vecino Nuevo",
+                    "alias": [],
+                    "address": {
+                        "street": "",
+                        "apartment": "",
+                        "floor": "",
+                        "neighborhood": "",
+                        "city": "",
+                        "coordinates": {"lat": None, "lng": None}
+                    },
+                    "contacts": {
+                        "primary": message.from_phone,
+                        "emergency": "",
+                        "family": ""
+                    },
+                    "medical": {
+                        "conditions": [],
+                        "medications": [],
+                        "allergies": [],
+                        "blood_type": ""
+                    },
+                    "emergency_info": {
+                        "is_admin": False,  # New members are not admins by default
+                        "response_role": "member",
+                        "evacuation_assistance": False,
+                        "special_needs": []
+                    },
+                    "metadata": {
+                        "joined_date": datetime.now().isoformat(),
+                        "last_active": datetime.now().isoformat(),
+                        "data_version": "1.0",
+                        "auto_detected": True  # Flag to indicate this was auto-added
+                    }
+                }
+                
+                # Add to members dictionary
+                member_data["members"][message.from_phone] = new_member
+                
+                # Update the database
+                success = await group_manager.update_group_member_data(
+                    message.chat_id,
+                    message.chat_name or "Unknown Group", 
+                    member_data
+                )
+                
+                if success:
+                    print(f"✅ AUTO-DETECT - Successfully added new member: {message.contact_name} ({message.from_phone})")
+                    
+                    # Optional: Send notification to group admins
+                    admin_phones = member_data.get("admins", [])
+                    if admin_phones:
+                        notification = f"👥 NUEVO MIEMBRO DETECTADO\\n\\n" \
+                                     f"📱 {message.contact_name or 'Usuario'} ({message.from_phone})\\n" \
+                                     f"🏘️ Grupo: {message.chat_name}\\n" \
+                                     f"📝 Agregado automáticamente al sistema\\n\\n" \
+                                     f"💡 Usa @editar para completar su información\\n\\n" \
+                                     f"💻 Sistema de Tailor Tech"
+                        
+                        # Send to first admin only to avoid spam
+                        try:
+                            await self._send_text_message(admin_phones[0], notification)
+                        except Exception as notify_error:
+                            print(f"⚠️ Could not notify admin: {notify_error}")
+                else:
+                    print(f"❌ AUTO-DETECT - Failed to add member to database")
+                    
+            except ImportError as e:
+                print(f"❌ AUTO-DETECT - Group manager service not available: {str(e)}")
+            except Exception as e:
+                print(f"❌ AUTO-DETECT - Error accessing member database: {str(e)}")
+                
+        except Exception as e:
+            print(f"❌ AUTO-DETECT - General error: {str(e)}")
