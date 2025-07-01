@@ -104,6 +104,12 @@ class CommandProcessor:
             elif raw_text.lower().startswith('@backups'):
                 # Handle @backups command to list available backups (groups only)
                 await self._handle_list_backups_command(message)
+            elif raw_text.lower().startswith('@infodb'):
+                # Handle @infodb command to show database structure (groups only)
+                await self._handle_infodb_command(message)
+            elif raw_text.lower().startswith('@vecinos'):
+                # Handle @vecinos command to list group members (groups only)
+                await self._handle_vecinos_command(message)
             else:
                 # Ignore all other commands silently
                 print(f"🔍 COMMAND DEBUG - IGNORING COMMAND: '{raw_text[:50]}...'")
@@ -630,6 +636,8 @@ class CommandProcessor:
 
 📝 COMANDOS DISPONIBLES:
    • @info - Mostrar información del sistema
+   • @infodb - Mostrar estructura de base de datos
+   • @vecinos - Listar miembros del grupo con datos básicos
    • @editar - Editar datos de miembros (solo administradores)
    • @exportar [csv/json] - Exportar datos de miembros
    • @importar - Importar datos de miembros
@@ -651,6 +659,175 @@ class CommandProcessor:
         except Exception as e:
             print(f"❌ Error processing @info command: {str(e)}")
             await self._send_text_message(message.chat_id, f"❌ Error procesando comando @info: {str(e)}")
+    
+    async def _handle_infodb_command(self, message: WhatsAppMessage):
+        """Handle @infodb command to show database structure information"""
+        try:
+            print(f"🗄️ @infodb command received from {message.contact_name or message.from_phone}")
+            
+            # Create database structure explanation
+            infodb_message = f"""🗄️ ESTRUCTURA DE BASE DE DATOS DE MIEMBROS
+
+📊 INFORMACIÓN GENERAL:
+• Almacenamiento: Google Drive (cifrado)
+• Formato: JSON por grupo de WhatsApp  
+• Ubicación: Carpeta 'member_databases'
+• Respaldos automáticos: ✅ Activos
+
+👤 DATOS DE CADA MIEMBRO:
+• Información Personal:
+  - Nombre completo y alias
+  - Teléfono principal y de emergencia
+  - Contacto familiar
+
+📍 Información de Ubicación:
+  - Dirección completa (calle, número, piso, depto)
+  - Barrio y ciudad
+  - Coordenadas GPS (opcional)
+
+🩺 Información Médica (Cifrada):
+  - Condiciones médicas importantes
+  - Medicamentos actuales  
+  - Alergias conocidas
+  - Tipo de sangre
+  - Necesidades especiales de evacuación
+
+👥 Información de Emergencia:
+  - Rol en emergencias (coordinador, asistente)
+  - Permisos de administrador
+  - Fechas de ingreso y última actividad
+
+🔒 SEGURIDAD Y PRIVACIDAD:
+• Datos médicos cifrados con AES-256
+• Solo administradores pueden ver información completa
+• Auditoría completa de todos los accesos
+• Cumple normativas de protección de datos
+
+📝 USO EN EMERGENCIAS:
+• Lookup automático durante alertas SOS
+• Información médica disponible para paramédicos
+• Contactos de emergencia notificados automáticamente
+• Ubicación exacta enviada a servicios de emergencia
+
+💻 Desarrollado por Tailor Tech
+🌐 https://tailortech.cl"""
+
+            await self._send_text_message(message.chat_id, infodb_message)
+            print("✅ @infodb database structure information sent")
+                
+        except Exception as e:
+            print(f"❌ Error processing @infodb command: {str(e)}")
+            await self._send_text_message(message.chat_id, f"❌ Error procesando comando @infodb: {str(e)}")
+    
+    async def _handle_vecinos_command(self, message: WhatsAppMessage):
+        """Handle @vecinos command to list group members with non-confidential data"""
+        try:
+            print(f"👥 @vecinos command received from {message.contact_name or message.from_phone}")
+            
+            # Lazy load member lookup service
+            try:
+                from app.services.member_lookup_service import MemberLookupService  
+                from app.services.group_manager_service import GroupManagerService
+                group_manager = GroupManagerService()
+            except ImportError as e:
+                print(f"❌ Member services not available: {str(e)}")
+                await self._send_text_message(message.chat_id, "❌ Servicio de miembros no disponible")
+                return
+            
+            # Get group member data
+            member_data = await group_manager.get_group_member_data(message.chat_id, message.chat_name or "Grupo")
+            
+            if not member_data or not member_data.get("members"):
+                await self._send_text_message(message.chat_id, 
+                    f"👥 VECINOS DE {message.chat_name or 'ESTE GRUPO'}\n\n"
+                    "❌ No hay miembros registrados en la base de datos\n\n"
+                    "💡 Para registrar miembros usa:\n"
+                    "• @editar nombre [teléfono] a [Nombre Completo]\n"
+                    "• @editar dirección [teléfono] a [Dirección]"
+                )
+                return
+            
+            # Build member list with non-confidential data
+            members = member_data.get("members", {})
+            group_name = member_data.get("group_name", message.chat_name or "Grupo")
+            admin_phones = member_data.get("admins", [])
+            
+            response = f"👥 VECINOS DE {group_name.upper()}\n"
+            response += f"📊 Total: {len(members)} miembros registrados\n\n"
+            
+            # Sort members by name
+            sorted_members = []
+            for phone, data in members.items():
+                name = data.get("name", "Sin nombre")
+                sorted_members.append((name, phone, data))
+            
+            sorted_members.sort(key=lambda x: x[0])
+            
+            for i, (name, phone, data) in enumerate(sorted_members[:20], 1):  # Limit to 20 members
+                # Get basic info
+                address = data.get("address", {})
+                street = address.get("street", "No registrada")
+                apartment = address.get("apartment", "")
+                neighborhood = address.get("neighborhood", "")
+                
+                # Check if admin
+                is_admin = phone in admin_phones
+                admin_icon = "👑" if is_admin else "👤"
+                
+                # Get alias
+                aliases = data.get("alias", [])
+                alias_text = f" ({', '.join(aliases)})" if aliases else ""
+                
+                # Build address text
+                address_text = street
+                if apartment:
+                    address_text += f", {apartment}"
+                if neighborhood:
+                    address_text += f" - {neighborhood}"
+                
+                response += f"{i}. {admin_icon} {name}{alias_text}\n"
+                response += f"   📱 {phone}\n"
+                response += f"   📍 {address_text}\n"
+                
+                # Show if member has emergency info without revealing details
+                emergency_info = data.get("emergency_info", {})
+                medical = data.get("medical", {})
+                
+                # Non-confidential indicators
+                has_emergency_contact = bool(data.get("contacts", {}).get("emergency"))
+                has_medical_info = bool(medical.get("conditions") or medical.get("allergies") or medical.get("blood_type"))
+                needs_assistance = emergency_info.get("evacuation_assistance", False)
+                
+                indicators = []
+                if has_emergency_contact:
+                    indicators.append("📞 Contacto emergencia")
+                if has_medical_info:
+                    indicators.append("🩺 Info médica")
+                if needs_assistance:
+                    indicators.append("🆘 Requiere asistencia")
+                
+                if indicators:
+                    response += f"   ℹ️ {' | '.join(indicators)}\n"
+                
+                response += "\n"
+            
+            if len(members) > 20:
+                response += f"... y {len(members) - 20} miembros más\n\n"
+            
+            response += f"💡 COMANDOS ÚTILES:\n"
+            response += f"• @editar dirección [teléfono] a [nueva dirección]\n"
+            response += f"• @editar teléfono emergencia [teléfono] a [contacto]\n"
+            response += f"• @editar admin agregar [teléfono] - hacer admin\n"
+            response += f"• @exportar csv - exportar todos los datos\n\n"
+            response += f"🔒 Datos médicos y contactos de emergencia son confidenciales\n"
+            response += f"💻 Desarrollado por Tailor Tech"
+
+            await self._send_text_message(message.chat_id, response)
+            print(f"✅ @vecinos member list sent for {group_name}")
+                
+        except Exception as e:
+            print(f"❌ Error processing @vecinos command: {str(e)}")
+            await self._send_text_message(message.chat_id, f"❌ Error procesando comando @vecinos: {str(e)}")
     
     async def _handle_test_command(self, message: WhatsAppMessage):
         """Handle TEST command - do blink pattern and send text response"""
