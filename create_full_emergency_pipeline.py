@@ -341,62 +341,7 @@ async def execute_full_emergency_pipeline(
         print(f"⚠️ Continuando sin mensaje de voz...")
         failed_steps.append("Voice Message")
     
-    await asyncio.sleep(2)
-    
-    # === STEP 5: ANIMATED EMERGENCY GIF ===
-    print(f"\n🎬 PASO 5: GIF ANIMADO DE EMERGENCIA")
-    
-    try:
-        # Generate dynamic animated emergency alert GIF with placeholder data
-        from create_final_animated_siren import create_animated_emergency_alert_gif
-        
-        print(f"🎬 Generating animated emergency alert GIF with dynamic data...")
-        print(f"📊 GIF Parameters: incident_type='{incident_type}', sender_name='{sender_name}', sender_phone='{sender_phone}'")
-        
-        # Create animated emergency alert with member data if available
-        gif_path = create_animated_emergency_alert_gif(
-            street_address=street_address,
-            phone_number=sender_phone,
-            contact_name=sender_name,
-            incident_type=incident_type,
-            chat_group_name=group_name,
-            alert_title="EMERGENCIA",
-            emergency_number=emergency_number,
-            num_frames=12,
-            frame_duration=150,
-            show_night_sky=True,
-            member_data=member_data  # Pass member data for enhanced content
-        )
-        
-        print(f"🎬 Generated GIF path: {gif_path}")
-        
-        if os.path.exists(gif_path):
-            print(f"✅ Animated emergency alert GIF generated: {gif_path}")
-            
-            # Send animated GIF to group
-            print(f"📤 Enviando GIF animado al grupo...")
-            gif_caption = f"🚨 ALERTA ANIMADA: {incident_type} 🚨"
-            
-            gif_success = await whatsapp_service.send_gif_message(group_chat_id, gif_path, gif_caption)
-            
-            # Cleanup generated GIF
-            if os.path.exists(gif_path):
-                os.remove(gif_path)
-                print(f"🧹 Cleaned up generated GIF: {gif_path}")
-            
-            if gif_success:
-                print(f"✅ GIF animado enviado al grupo")
-                success_steps.append("Animated Emergency GIF")
-            else:
-                raise Exception("Falló el envío del GIF animado")
-        else:
-            raise Exception("No se pudo generar el GIF animado")
-            
-    except Exception as e:
-        print(f"❌ Error enviando GIF animado: {str(e)}")
-        print(f"⚠️ Continuando sin GIF...")
-        failed_steps.append("Animated Emergency GIF")
-    
+    # GIF step removed - emergency pipeline now ends with voice message
     # === AUDIT LOGGING ===
     try:
         from app.services.audit_service import AuditService
@@ -449,7 +394,7 @@ async def execute_full_emergency_pipeline(
     print(f"🚨 TIPO: {incident_type}")
     print(f"📍 UBICACIÓN: {street_address}")
     
-    # Overall success if at least 3 out of 5 steps completed
+    # Overall success if at least 3 out of 4 steps completed (GIF removed)
     overall_success = len(success_steps) >= 3
     
     if overall_success:
