@@ -606,42 +606,44 @@ class CommandProcessor:
             # @info works in both individual and group chats
             print(f"ℹ️ @info command received from {message.contact_name or message.from_phone}")
             
-            # Generate system information message
+            # Generate system information message in Spanish
             info_message = f"""🚨{'='*60}
-🚨 WHATSAPP EMERGENCY COMMAND SYSTEM INITIALIZED
+🚨 SISTEMA DE EMERGENCIAS WHATSAPP ACTIVADO
 🚨{'='*60}
 
-📢 CONFIGURED TRIGGER KEYWORDS:
-   1. 'SOS' - Activates emergency response system
+📢 PALABRA CLAVE CONFIGURADA:
+   1. 'SOS' - Activa el sistema de respuesta de emergencia
 
-🎯 SUPPORTED MESSAGE PATTERNS:
+🎯 PATRONES DE MENSAJE SOPORTADOS:
    • SOS → EMERGENCIA GENERAL
-   • sos → EMERGENCIA GENERAL
+   • sos → EMERGENCIA GENERAL  
    • SOS INCENDIO → INCENDIO
    • SOS EMERGENCIA MÉDICA → EMERGENCIA MÉDICA
-   • SOS ACCIDENTE VEHICULAR → ACCIDENTE VEHICULAR (max 2 words)
+   • SOS ACCIDENTE VEHICULAR → ACCIDENTE VEHICULAR (máx 2 palabras)
    • S.O.S TERREMOTO → TERREMOTO
-   • Any message containing SOS triggers emergency response
+   • Cualquier mensaje que contenga SOS activa la respuesta de emergencia
 
-📱 TARGET GROUP CHAT: TEST_ALARM (120363400467632358@g.us)
-🔧 DEVICE CONTROL: Sonoff switches integrated
-🎤 VOICE ALERTS: OpenAI TTS (Spanish)
-📷 IMAGE ALERTS: ✅ Available
-⚡ STATUS: 🟢 OPERATIONAL
+🔧 CONTROL DE DISPOSITIVOS: Switches Sonoff integrados
+🎤 ALERTAS DE VOZ: OpenAI TTS (Español)
+📷 ALERTAS DE IMAGEN: ✅ Disponible
+⚡ ESTADO: 🟢 OPERACIONAL
 
-📝 AVAILABLE COMMANDS:
-   • @info - Show this system information
-   • @editar - Edit member data (admins only)
-   • @exportar [csv/json] - Export member data
-   • @importar - Import member data
-   • @plantilla - Get CSV template
-   • @backup [group/full] - Create backup
-   • @restore [backup_name] - Restore backup
-   • @backups - List available backups
+📝 COMANDOS DISPONIBLES:
+   • @info - Mostrar información del sistema
+   • @editar - Editar datos de miembros (solo administradores)
+   • @exportar [csv/json] - Exportar datos de miembros
+   • @importar - Importar datos de miembros
+   • @plantilla - Obtener plantilla CSV
+   • @backup [grupo/completo] - Crear respaldo
+   • @restore [nombre_backup] - Restaurar desde respaldo
+   • @backups - Listar respaldos disponibles
 
 🚨{'='*60}
-🚨 EMERGENCY SYSTEM READY FOR WHATSAPP MESSAGES
-🚨{'='*60}"""
+🚨 SISTEMA DE EMERGENCIAS LISTO PARA MENSAJES
+🚨{'='*60}
+
+💻 Desarrollado por Tailor Tech
+🌐 https://tailortech.cl"""
 
             await self._send_text_message(message.chat_id, info_message)
             print("✅ @info system information sent")
