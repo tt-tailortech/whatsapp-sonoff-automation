@@ -26,8 +26,8 @@ class CommandProcessor:
         self._bulk_data_service = None
         self._backup_service = None
         
-        # Message cache for @tailor command (stores recent 3 messages per chat)
-        self._message_cache = {}  # {chat_id: [message1, message2, message3]}
+        # Message cache for @tailor command (stores recent 7 messages per chat)
+        self._message_cache = {}  # {chat_id: [message1, message2, ..., message7]}
     
     async def process_whatsapp_message(self, payload: Dict[str, Any]):
         """Process incoming WhatsApp message and execute commands"""
@@ -953,7 +953,7 @@ class CommandProcessor:
             return False
     
     def _cache_message(self, message: WhatsAppMessage):
-        """Cache message for @tailor command context (stores last 3 messages per chat)"""
+        """Cache message for @tailor command context (stores last 7 messages per chat)"""
         try:
             chat_id = message.chat_id
             
@@ -972,9 +972,9 @@ class CommandProcessor:
                 "timestamp": time.time()
             }
             
-            # Add to cache (keep only last 3 messages)
+            # Add to cache (keep only last 7 messages)
             self._message_cache[chat_id].append(message_entry)
-            if len(self._message_cache[chat_id]) > 3:
+            if len(self._message_cache[chat_id]) > 7:
                 self._message_cache[chat_id].pop(0)
             
             print(f"💬 Cached message for chat {chat_id}: {len(self._message_cache[chat_id])} messages stored")
@@ -993,19 +993,22 @@ class CommandProcessor:
             if not user_query:
                 await self._send_text_message(message.chat_id, 
                     "👋 ¡Hola! Soy Tailor, tu vecino digital amigable 🤖\n\n"
-                    "Pregúntame lo que quieras después de @tailor\n\n"
-                    "Ejemplo: @tailor ¿qué tiempo hace hoy?\n\n"
+                    "Pregúntame lo que quieras después de @tailor:\n\n"
+                    "💬 Conversación: @tailor ¿qué tiempo hace hoy?\n"
+                    "🔧 Sistema: @tailor ¿cómo uso el comando @editar?\n"
+                    "🚨 Emergencias: @tailor ¿cómo funciona SOS?\n"
+                    "📊 Datos: @tailor ¿qué info guarda el sistema?\n\n"
                     "💻 Desarrollado por Tailor Tech")
                 return
             
-            # Get recent message context (last 3 messages)
+            # Get recent message context (last 7 messages)
             chat_context = ""
             if message.chat_id in self._message_cache:
                 recent_messages = self._message_cache[message.chat_id]
                 if recent_messages:
                     chat_context = "Contexto de conversación reciente:\\n"
                     for msg in recent_messages:
-                        chat_context += f"- {msg['sender']}: {msg['text'][:100]}...\\n"
+                        chat_context += f"- {msg['sender']}: {msg['text'][:150]}...\\n"
             
             # Generate AI response using OpenAI
             try:
@@ -1044,9 +1047,9 @@ class CommandProcessor:
         sender_name = message.contact_name or "Amigo"
         group_name = message.chat_name or "este grupo"
         
-        # Create friendly neighbor prompt
-        system_prompt = f"""Eres Tailor, un vecino digital súper amigable y divertido de una comunidad chilena. 
-        
+        # Create friendly neighbor prompt with system knowledge
+        system_prompt = f"""Eres Tailor, un vecino digital súper amigable y divertido de una comunidad chilena. También eres el experto técnico del sistema de emergencias y conoces todos los comandos y funcionalidades.
+
 PERSONALIDAD:
 - Muy amigable, cercano y cálido como un buen vecino
 - Hablas en español chileno informal pero respetuoso 
@@ -1055,20 +1058,60 @@ PERSONALIDAD:
 - Ocasionalmente usas chilenismos suaves (bacán, fome, etc.)
 - Te gusta hacer bromas suaves y ser positivo
 
-CONTEXTO:
+CONTEXTO COMUNITARIO:
 - Vives en una comunidad que usa WhatsApp para emergencias
 - Conoces a todos los vecinos y te importa su bienestar
 - Eres parte del sistema de alertas de emergencia creado por Tailor Tech
 - Puedes hablar de cualquier tema, no solo emergencias
 
+CONOCIMIENTO TÉCNICO DEL SISTEMA:
+Comandos Disponibles:
+• @info - Información del sistema de emergencias
+• @infodb - Estructura de base de datos de miembros
+• @vecinos - Lista de vecinos con datos básicos
+• @tailor [pregunta] - Chat contigo (este comando)
+• @editar - Editar datos de miembros (solo admins)
+• @exportar [csv/json] - Exportar datos de miembros
+• @importar - Importar datos masivos
+• @plantilla - Plantilla CSV para datos
+• @backup [grupo/completo] - Crear respaldos
+• @restore [nombre] - Restaurar desde respaldo
+• @backups - Listar respaldos disponibles
+• SOS [tipo] - Activar emergencia (usa base de datos)
+
+Funcionalidades del Sistema:
+- Pipeline de Emergencia: Dispositivo parpadea → Texto → Imagen → Voz
+- Base de Datos: Google Drive con datos cifrados de miembros
+- Dispositivos Sonoff: Control remoto de switches/alarmas
+- IA Inteligente: OpenAI para mensajes y respuestas de emergencia
+- Webhooks WhatsApp: WHAPI.cloud para integración
+- Generación de Imágenes: Alertas dinámicas con datos reales
+- Mensajes de Voz: TTS en español para emergencias
+- Administración: Permisos por roles (admin, moderador, miembro)
+
+Base de Datos de Miembros:
+- Información personal: nombre, alias, teléfonos
+- Dirección completa: calle, depto, piso, barrio, coordenadas
+- Datos médicos cifrados: condiciones, medicamentos, alergias, tipo sangre
+- Contactos de emergencia: familia, coordinadores
+- Configuración de evacuación: asistencia requerida, necesidades especiales
+
+CUANDO PREGUNTEN SOBRE EL SISTEMA:
+- Explica los comandos de forma clara y práctica
+- Da ejemplos específicos de uso
+- Menciona permisos necesarios (admin vs cualquier usuario)
+- Sugiere flujos de trabajo útiles
+- Explica beneficios de seguridad y funcionalidad
+
 ESTILO DE RESPUESTA:
-- Máximo 200 palabras
+- Máximo 300 palabras para respuestas técnicas (250 para temas generales)
 - Siempre amigable y positivo
 - Si no sabes algo específico, lo admites honestamente
 - Termina con el footer de Tailor Tech solo si la respuesta es larga
 - Para respuestas cortas, no uses el footer
+- Usa formato claro con emojis para comandos técnicos
 
-IMPORTANTE: Eres un vecino real, no menciones que eres AI a menos que te pregunten directamente."""
+IMPORTANTE: Eres un vecino real que también maneja la tecnología. No menciones que eres AI a menos que te pregunten directamente."""
 
         user_prompt = f"""El vecino {sender_name} de {group_name} te pregunta: "{user_query}"
 
@@ -1095,7 +1138,7 @@ Responde como Tailor, su vecino amigable. ¡Sé natural, cálido y útil!"""
                             "content": user_prompt
                         }
                     ],
-                    "max_tokens": 250,
+                    "max_tokens": 350,  # Increased for technical responses
                     "temperature": 0.8  # Higher temperature for more personality
                 }
                 
@@ -1110,7 +1153,7 @@ Responde como Tailor, su vecino amigable. ¡Sé natural, cálido y útil!"""
                         ai_message = result['choices'][0]['message']['content'].strip()
                         
                         # Add Tailor Tech footer for longer responses
-                        if len(ai_message) > 100:
+                        if len(ai_message) > 150:
                             ai_message += "\\n\\n💻 Desarrollado por Tailor Tech"
                         
                         print(f"🤖 Generated {len(ai_message)} character Tailor response")
