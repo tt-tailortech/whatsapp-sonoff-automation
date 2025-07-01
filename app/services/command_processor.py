@@ -28,6 +28,9 @@ class CommandProcessor:
         
         # Message cache for @tailor command (stores recent 7 messages per chat)
         self._message_cache = {}  # {chat_id: [message1, message2, ..., message7]}
+        
+        # Icon check cache to avoid expensive checks on every message
+        self._icon_check_cache = {}  # {group_id: last_check_timestamp}
     
     async def process_whatsapp_message(self, payload: Dict[str, Any]):
         """Process incoming WhatsApp message and execute commands"""
@@ -57,6 +60,9 @@ class CommandProcessor:
             # Auto-detect and add new members to database (groups only)
             if message.chat_id.endswith("@g.us"):
                 await self._auto_detect_new_member(message)
+                
+                # Check and create group icon if missing (groups only)
+                await self._check_and_create_group_icon(message)
             
             # Then process the command
             print(f"🔄 WEBHOOK DEBUG - About to process command...")
@@ -1083,7 +1089,8 @@ Comandos Disponibles:
 Funcionalidades del Sistema:
 - Pipeline de Emergencia: Dispositivo parpadea → Texto → Imagen → Voz
 - Base de Datos: Google Drive con datos cifrados de miembros
-- Auto-Detección: Nuevos miembros se agregan automáticamente al escribir
+- Auto-Detección: Nuevos miembros se agregan automáticamente al escribir  
+- Iconos de Grupo: Genera automáticamente íconos de vecindario seguro
 - Dispositivos Sonoff: Control remoto de switches/alarmas
 - IA Inteligente: OpenAI para mensajes y respuestas de emergencia
 - Webhooks WhatsApp: WHAPI.cloud para integración
@@ -1297,3 +1304,46 @@ Responde como Tailor, su vecino amigable. ¡Sé natural, cálido y útil!"""
                 
         except Exception as e:
             print(f"❌ AUTO-DETECT - General error: {str(e)}")
+    
+    async def _check_and_create_group_icon(self, message: WhatsAppMessage):
+        """Check if group has icon, create one if missing (rate limited to once per day per group)"""
+        try:
+            current_time = time.time()
+            group_id = message.chat_id
+            
+            # Check if we've already checked this group recently (24 hours = 86400 seconds)
+            last_check = self._icon_check_cache.get(group_id, 0)
+            time_since_check = current_time - last_check
+            
+            if time_since_check < 86400:  # 24 hours
+                print(f"🖼️ ICON CHECK - Skipping {message.chat_name}, checked {time_since_check/3600:.1f}h ago")
+                return
+            
+            print(f"🖼️ ICON CHECK - Time to check group icon for: {message.chat_name}")
+            
+            # Update cache with current check time
+            self._icon_check_cache[group_id] = current_time
+            
+            # Import group icon service
+            try:
+                from app.services.group_icon_service import GroupIconService
+                icon_service = GroupIconService()
+                
+                # Check and create icon if missing
+                success = await icon_service.check_and_create_group_icon(
+                    message.chat_id,
+                    message.chat_name or "Unknown Group"
+                )
+                
+                if success:
+                    print(f"✅ ICON CHECK - Group icon verified/created for {message.chat_name}")
+                else:
+                    print(f"⚠️ ICON CHECK - Could not verify/create icon for {message.chat_name}")
+                    
+            except ImportError as e:
+                print(f"❌ ICON CHECK - Group icon service not available: {str(e)}")
+            except Exception as e:
+                print(f"❌ ICON CHECK - Error with group icon: {str(e)}")
+                
+        except Exception as e:
+            print(f"❌ ICON CHECK - General error: {str(e)}")
