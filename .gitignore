@@ -33,4 +33,4 @@ test_results/
 # Dependencies
 venv/
 env/
-ENV/
+ENV/google_drive_credentials.json

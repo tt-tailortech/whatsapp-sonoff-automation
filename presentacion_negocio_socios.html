@@ -1,0 +1,2245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alarmas Comunitarias WhatsApp - Propuesta de Negocio</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <!-- Mermaid for flowcharts -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <!-- Tippy.js for tooltips -->
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <script src="https://unpkg.com/tippy.js@6"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-attachment: fixed;
+            scroll-behavior: smooth;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3), transparent 60%),
+                        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.15), transparent 60%),
+                        radial-gradient(circle at 40% 40%, rgba(120, 219, 226, 0.1), transparent 60%);
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        .navbar {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            padding: 15px 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+        
+        .nav-logo {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 30px;
+        }
+        
+        .nav-links a {
+            text-decoration: none;
+            color: #2c3e50;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        
+        .nav-links a:hover {
+            color: #3498db;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 100px 20px 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 30px;
+            padding: 70px 50px;
+            margin-bottom: 50px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+            background-size: 200% 100%;
+            animation: shimmer 3s ease-in-out infinite;
+        }
+        
+        @keyframes shimmer {
+            0%, 100% { background-position: -200% 0; }
+            50% { background-position: 200% 0; }
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 3em;
+            margin-bottom: 15px;
+            font-weight: 300;
+            letter-spacing: -1px;
+        }
+        
+        .header .subtitle {
+            color: #7f8c8d;
+            font-size: 1.3em;
+            font-weight: 300;
+            margin-bottom: 30px;
+        }
+        
+        .header .tagline {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            display: inline-block;
+            font-weight: 500;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            border-radius: 25px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-8px) scale(1.01);
+            box-shadow: 0 35px 70px rgba(0, 0, 0, 0.2);
+        }
+
+        .card:hover::before {
+            left: 100%;
+        }
+        
+        .card h2 {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-size: 2em;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+            position: relative;
+        }
+        
+        .card h2::after {
+            content: '';
+            position: absolute;
+            bottom: -3px;
+            left: 0;
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin: 40px 0;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: scale(1.05);
+        }
+        
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            transform: rotate(45deg);
+        }
+        
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .metric-label {
+            font-size: 1em;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 30px 0;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            min-width: 600px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin: 25px 0;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-container::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 10px;
+        }
+        
+        .comparison-table th,
+        .comparison-table td {
+            padding: 18px 15px;
+            text-align: center;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .comparison-table th {
+            background: linear-gradient(135deg, #34495e, #2c3e50);
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.9em;
+            letter-spacing: 0.5px;
+        }
+        
+        .comparison-table tr:hover {
+            background: linear-gradient(90deg, #f8f9fa, #e9ecef);
+            transform: scale(1.01);
+        }
+        
+        .comparison-table tbody tr {
+            transition: all 0.3s ease;
+        }
+        
+        .highlight {
+            background: linear-gradient(120deg, #a8edea 0%, #fed6e3 100%);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+            border-left: 5px solid #3498db;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 5px;
+            margin-bottom: 30px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            color: #666;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .cta-section {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 50px;
+            border-radius: 20px;
+            text-align: center;
+            margin-top: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            animation: shine 3s infinite;
+        }
+        
+        @keyframes shine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .cta-section h2 {
+            color: white;
+            border: none;
+            margin-bottom: 20px;
+        }
+        
+        .cta-section h2::after {
+            display: none;
+        }
+        
+        .progress-bar {
+            background: #ecf0f1;
+            border-radius: 15px;
+            height: 25px;
+            margin: 15px 0;
+            overflow: hidden;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            height: 100%;
+            border-radius: 15px;
+            transition: width 2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: progressShine 2s infinite;
+        }
+        
+        @keyframes progressShine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+        
+        .breakdown-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 25px 0;
+        }
+        
+        .breakdown-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        
+        .breakdown-card:hover {
+            border-color: #667eea;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .breakdown-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .breakdown-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .container {
+                padding: 80px 10px 20px;
+            }
+            
+            .header {
+                padding: 40px 25px;
+                margin-bottom: 30px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .header .subtitle {
+                font-size: 1.1em;
+            }
+            
+            .header .tagline {
+                padding: 12px 20px;
+                font-size: 0.9em;
+            }
+            
+            .card {
+                padding: 25px 20px;
+                margin-bottom: 20px;
+                border-radius: 20px;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .two-column {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .tab {
+                padding: 12px;
+                font-size: 0.9em;
+            }
+            
+            .technical-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .tech-card {
+                padding: 20px;
+            }
+            
+            .tech-node {
+                padding: 12px 16px;
+                margin: 5px;
+                font-size: 0.8em;
+                min-width: 120px;
+            }
+            
+            .tech-nodes-grid {
+                gap: 10px;
+            }
+            
+            .diagram-container {
+                padding: 20px 15px;
+            }
+            
+            .flow-controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .flow-btn {
+                padding: 10px 20px;
+                font-size: 0.9em;
+            }
+            
+            .comparison-table {
+                font-size: 0.85em;
+                min-width: 500px;
+            }
+            
+            .comparison-table th,
+            .comparison-table td {
+                padding: 12px 8px;
+            }
+            
+            .breakdown-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .flow-step {
+                padding: 15px;
+                margin: 10px 5px;
+            }
+            
+            .system-diagram {
+                padding: 25px 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .card {
+                padding: 20px 15px;
+            }
+            
+            .tech-node {
+                padding: 10px 12px;
+                font-size: 0.75em;
+                min-width: 100px;
+            }
+            
+            .metric-card {
+                padding: 20px;
+            }
+            
+            .metric-value {
+                font-size: 2em;
+            }
+            
+            .comparison-table {
+                font-size: 0.75em;
+                min-width: 450px;
+            }
+            
+            .flow-controls {
+                margin: 15px 0;
+            }
+        }
+        
+        .fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease;
+        }
+        
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Technical Diagram Styles */
+        .system-diagram {
+            background: #f8f9fa;
+            border-radius: 20px;
+            padding: 40px;
+            margin: 30px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .system-diagram::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+            background-size: 200% 100%;
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        .diagram-container {
+            position: relative;
+            background: white;
+            border-radius: 15px;
+            padding: 30px 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .tech-node {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 25px;
+            display: inline-block;
+            margin: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            font-size: 0.9em;
+            text-align: center;
+            min-width: 140px;
+        }
+
+        .tech-nodes-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+            max-width: 100%;
+        }
+
+        .tech-node:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .tech-node i {
+            margin-right: 8px;
+        }
+
+        .flow-step {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .flow-step:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.2);
+        }
+
+        .flow-step.active {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+        }
+
+        .flow-arrow {
+            text-align: center;
+            font-size: 2em;
+            color: #667eea;
+            margin: 10px 0;
+        }
+
+        .tooltip-content {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            max-width: 300px;
+            line-height: 1.4;
+        }
+
+        .technical-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin: 30px 0;
+        }
+
+        .tech-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .tech-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+        }
+
+        .tech-card h4 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .tech-card h4 i {
+            margin-right: 10px;
+            color: #667eea;
+        }
+
+        .code-snippet {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-active { background: #27ae60; }
+        .status-processing { background: #f39c12; animation: pulse 2s infinite; }
+        .status-complete { background: #3498db; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .interactive-flow {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 25px 0;
+        }
+
+        .flow-controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .flow-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .flow-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .flow-btn.active {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+        }
+
+        /* Parallel Processing Section Styling */
+        .parallel-processing-section {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+            border: 2px dashed rgba(102, 126, 234, 0.3);
+            border-radius: 20px;
+            padding: 25px 20px;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .parallel-processing-section::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+            border-radius: 20px;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .parallel-processing-section:hover::before {
+            opacity: 1;
+        }
+
+        .parallel-processing-section h5 {
+            text-align: center;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        /* Flow Section Separators */
+        .flow-section {
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #667eea;
+            position: relative;
+        }
+
+        .flow-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #667eea, transparent);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">🔐 SeguridadWhatsApp</div>
+            <ul class="nav-links">
+                <li><a href="#resumen">Resumen</a></li>
+                <li><a href="#sistema">Sistema</a></li>
+                <li><a href="#financiero">Análisis</a></li>
+                <li><a href="#desglose">Desglose</a></li>
+                <li><a href="#precios">Precios</a></li>
+                <li><a href="#oportunidad">Oportunidad</a></li>
+                <li><a href="#accion">Acción</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header fade-in">
+            <h1>🚨 Alarmas Comunitarias WhatsApp</h1>
+            <p class="subtitle">Sistema de Seguridad Inteligente de Próxima Generación</p>
+            <div class="tagline">
+                <i class="fas fa-rocket"></i> Tecnología Accesible • 
+                <i class="fas fa-chart-line"></i> Márgenes del 72% • 
+                <i class="fas fa-expand-arrows-alt"></i> Escalabilidad Inmediata
+            </div>
+        </div>
+
+        <section id="resumen" class="section">
+            <div class="card fade-in">
+                <h2><i class="fas fa-chart-pie"></i> Resumen Ejecutivo</h2>
+                <p style="font-size: 1.2em; margin-bottom: 30px; line-height: 1.8;">
+                    <strong>🎯 Oportunidad única:</strong> Sistema revolucionario de alertas comunitarias que transforma WhatsApp en una plataforma de seguridad profesional. 
+                    Combina <strong>tecnología accesible</strong> con <strong>alta demanda de seguridad barrial</strong> post-pandemia.
+                </p>
+                <p style="font-size: 1.1em; margin-bottom: 30px; background: linear-gradient(120deg, #f8f9fa, #e9ecef); padding: 20px; border-radius: 15px; border-left: 4px solid #667eea;">
+                    <strong>💡 Modelo financiero optimizado:</strong> Implementación de alarmas IoT ($50/barrio una sola vez) + escalamiento inteligente (+20% operativo cada 100 clientes). 
+                    <strong>Resultado:</strong> Márgenes sostenibles del 72% con rentabilidad desde 1.4 barrios.
+                </p>
+                
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">$600</div>
+                        <div class="metric-label">Precio anual por barrio</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">$60</div>
+                        <div class="metric-label">Precio anual por casa</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">72%</div>
+                        <div class="metric-label">Margen de ganancia anual</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">1.4</div>
+                        <div class="metric-label">Barrios para break-even</div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="sistema" class="section">
+            <div class="card fade-in">
+                <h2><i class="fas fa-cogs"></i> Arquitectura del Sistema Técnico</h2>
+                <p style="font-size: 1.1em; margin-bottom: 30px;">Sistema completo de alertas de emergencia integrado con WhatsApp, dispositivos IoT y servicios en la nube. Arquitectura escalable con pipeline de respuesta automatizada.</p>
+                
+                <div class="system-diagram">
+                    <h3 style="text-align: center; margin-bottom: 30px; color: #2c3e50;">
+                        <i class="fas fa-project-diagram"></i> Flujo del Sistema de Emergencia
+                    </h3>
+                    
+                    <div class="interactive-flow">
+                        <div class="flow-controls">
+                            <button class="flow-btn active" onclick="showSystemFlow('overview')">
+                                <i class="fas fa-eye"></i> Vista General
+                            </button>
+                            <button class="flow-btn" onclick="showSystemFlow('detailed')">
+                                <i class="fas fa-search-plus"></i> Detalles Técnicos
+                            </button>
+                            <button class="flow-btn" onclick="showSystemFlow('demo')">
+                                <i class="fas fa-play"></i> Simulación
+                            </button>
+                        </div>
+
+                        <div id="overview-flow" class="flow-content active">
+                            <div class="diagram-container">
+                                <!-- Input Section -->
+                                <div class="flow-section">
+                                    <div class="tech-node" data-tooltip="WhatsApp Business API integrado con webhook para recepción en tiempo real">
+                                        <i class="fab fa-whatsapp"></i> Grupo WhatsApp
+                                    </div>
+                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
+                                </div>
+                                
+                                <!-- Processing Section -->
+                                <div class="flow-section">
+                                    <div class="tech-node" data-tooltip="Servidor Python con FastAPI para procesamiento de mensajes y webhooks">
+                                        <i class="fas fa-server"></i> Webhook de Mensajes
+                                    </div>
+                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
+                                    
+                                    <div class="tech-node" data-tooltip="Análisis inteligente de comandos SOS con extracción de contexto mediante regex">
+                                        <i class="fas fa-brain"></i> Procesador de Comandos
+                                    </div>
+                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
+                                </div>
+                                
+                                <!-- Parallel Processing Section -->
+                                <div class="parallel-processing-section">
+                                    <h5>Procesamiento en Paralelo</h5>
+                                    <div class="tech-nodes-grid">
+                                        <div class="tech-node" data-tooltip="Control inmediato de dispositivos Sonoff via API REST">
+                                            <i class="fas fa-lightbulb"></i> Control de Dispositivos
+                                        </div>
+                                        <div class="tech-node" data-tooltip="Generación de alertas contextuales con OpenAI GPT-4">
+                                            <i class="fas fa-robot"></i> Mensajes IA
+                                        </div>
+                                        <div class="tech-node" data-tooltip="Creación dinámica de imágenes de emergencia con PIL/Pillow">
+                                            <i class="fas fa-image"></i> Imágenes Dinámicas
+                                        </div>
+                                        <div class="tech-node" data-tooltip="Síntesis de voz en español con OpenAI TTS">
+                                            <i class="fas fa-volume-up"></i> Mensajes de Voz
+                                        </div>
+                                        <div class="tech-node" data-tooltip="GIFs animados con sirenas y datos en tiempo real">
+                                            <i class="fas fa-film"></i> GIFs Animados
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Output Section -->
+                                <div class="flow-section">
+                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
+                                    <div class="tech-node" data-tooltip="Distribución multicanal via WhatsApp Business API">
+                                        <i class="fas fa-broadcast-tower"></i> Difusión Multicanal
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="detailed-flow" class="flow-content" style="display: none;">
+                            <div class="technical-grid">
+                                <div class="tech-card">
+                                    <h4><i class="fab fa-whatsapp"></i> WhatsApp Integration</h4>
+                                    <p>API Business con webhook configurado para captura de mensajes en tiempo real</p>
+                                    <div class="code-snippet">
+webhook_url = "https://servidor.com/webhook"
+whapi_token = "your_token_here"
+headers = {"Authorization": f"Bearer {whapi_token}"}
+                                    </div>
+                                    <p><span class="status-indicator status-active"></span>Estado: Activo y funcionando</p>
+                                </div>
+
+                                <div class="tech-card">
+                                    <h4><i class="fas fa-server"></i> Backend Services</h4>
+                                    <p>FastAPI + Python con procesamiento asíncrono para alta concurrencia</p>
+                                    <div class="code-snippet">
+@app.post("/webhook")
+async def handle_webhook(data: dict):
+    message = extract_message(data)
+    if is_sos_command(message):
+        await trigger_emergency_pipeline()
+                                    </div>
+                                    <p><span class="status-indicator status-active"></span>Uptime: 99.9%</p>
+                                </div>
+
+                                <div class="tech-card">
+                                    <h4><i class="fas fa-brain"></i> AI Processing</h4>
+                                    <p>OpenAI GPT-4 para generación contextual de mensajes de emergencia</p>
+                                    <div class="code-snippet">
+emergency_prompt = f"""
+Generar mensaje de emergencia para:
+Incidente: {incident_type}
+Ubicación: {location}
+Contexto: {context}
+"""
+                                    </div>
+                                    <p><span class="status-indicator status-processing"></span>Procesando solicitudes</p>
+                                </div>
+
+                                <div class="tech-card">
+                                    <h4><i class="fas fa-microchip"></i> IoT Device Control</h4>
+                                    <p>Control Sonoff via REST API con secuencia de 3 parpadeos y apagado</p>
+                                    <div class="code-snippet">
+sequence = [
+    {"action": "on", "duration": 0.5},
+    {"action": "off", "duration": 0.5},
+    {"action": "on", "duration": 0.5},
+    {"action": "off", "duration": "permanent"}
+]
+                                    </div>
+                                    <p><span class="status-indicator status-complete"></span>Respuesta < 2 segundos</p>
+                                </div>
+
+                                <div class="tech-card">
+                                    <h4><i class="fas fa-cloud"></i> Media Generation</h4>
+                                    <p>Pipeline completo de contenido: imágenes, audio, GIFs animados</p>
+                                    <div class="code-snippet">
+# Imagen dinámica
+create_emergency_image(incident, location, timestamp)
+# Audio TTS
+generate_voice_message(message, language="es")
+# GIF animado
+create_spinning_siren_gif(incident_data)
+                                    </div>
+                                    <p><span class="status-indicator status-active"></span>Generación en < 5 seg</p>
+                                </div>
+
+                                <div class="tech-card">
+                                    <h4><i class="fas fa-database"></i> Data Flow</h4>
+                                    <p>Procesamiento en pipeline con manejo de errores y respaldos</p>
+                                    <div class="code-snippet">
+Pipeline Order:
+1. Device Blink (0-2 seg)
+2. Text Alert (2-5 seg) 
+3. Emergency Image (5-10 seg)
+4. Voice Message (10-15 seg)
+5. Animated GIF (15-20 seg)
+                                    </div>
+                                    <p><span class="status-indicator status-active"></span>Pipeline completo < 20 seg</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="demo-flow" class="flow-content" style="display: none;">
+                            <div class="diagram-container">
+                                <h4 style="text-align: center; margin-bottom: 20px;">
+                                    <i class="fas fa-play-circle"></i> Simulación de Emergencia: "SOS INCENDIO"
+                                </h4>
+                                
+                                <div id="demo-steps">
+                                    <div class="flow-step demo-step" data-step="1">
+                                        <h5><i class="fab fa-whatsapp"></i> Usuario envía "SOS INCENDIO"</h5>
+                                        <p>Mensaje detectado en grupo WhatsApp</p>
+                                        <small>Tiempo: 0 segundos</small>
+                                    </div>
+                                    
+                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
+                                    
+                                    <div class="flow-step demo-step" data-step="2">
+                                        <h5><i class="fas fa-server"></i> Webhook procesa mensaje</h5>
+                                        <p>Servidor recibe y analiza comando SOS</p>
+                                        <small>Tiempo: 0.5 segundos</small>
+                                    </div>
+                                    
+                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
+                                    
+                                    <div class="flow-step demo-step" data-step="3">
+                                        <h5><i class="fas fa-lightbulb"></i> Dispositivos parpadean</h5>
+                                        <p>3 parpadeos + apagado en todas las alarmas</p>
+                                        <small>Tiempo: 1-2 segundos</small>
+                                    </div>
+                                    
+                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
+                                    
+                                    <div class="flow-step demo-step" data-step="4">
+                                        <h5><i class="fas fa-robot"></i> IA genera mensaje</h5>
+                                        <p>"🚨 INCENDIO REPORTADO 🔥 Evacuación inmediata..."</p>
+                                        <small>Tiempo: 2-5 segundos</small>
+                                    </div>
+                                    
+                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
+                                    
+                                    <div class="flow-step demo-step" data-step="5">
+                                        <h5><i class="fas fa-image"></i> Imagen dinámica</h5>
+                                        <p>Imagen con datos del incidente y ubicación</p>
+                                        <small>Tiempo: 5-10 segundos</small>
+                                    </div>
+                                    
+                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
+                                    
+                                    <div class="flow-step demo-step" data-step="6">
+                                        <h5><i class="fas fa-volume-up"></i> Mensaje de voz</h5>
+                                        <p>Audio en español con detalles de la emergencia</p>
+                                        <small>Tiempo: 10-15 segundos</small>
+                                    </div>
+                                    
+                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
+                                    
+                                    <div class="flow-step demo-step" data-step="7">
+                                        <h5><i class="fas fa-film"></i> GIF animado</h5>
+                                        <p>Sirena giratoria con información del incidente</p>
+                                        <small>Tiempo: 15-20 segundos</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="flow-controls" style="margin-top: 30px;">
+                                    <button class="flow-btn" onclick="runDemo()">
+                                        <i class="fas fa-play"></i> Ejecutar Simulación
+                                    </button>
+                                    <button class="flow-btn" onclick="resetDemo()">
+                                        <i class="fas fa-redo"></i> Reiniciar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight">
+                    <strong>🎯 Características Técnicas Clave:</strong><br>
+                    • <strong>Tiempo de Respuesta:</strong> < 2 segundos para activación física<br>
+                    • <strong>Pipeline Completo:</strong> < 20 segundos para todos los medios<br>
+                    • <strong>Escalabilidad:</strong> Arquitectura cloud-native con auto-scaling<br>
+                    • <strong>Fiabilidad:</strong> Sistema redundante con respaldos automáticos<br>
+                    • <strong>APIs Integradas:</strong> WhatsApp, OpenAI, Sonoff, TTS, generación de medios
+                </div>
+
+                <div class="technical-grid" style="margin-top: 30px;">
+                    <div class="tech-card">
+                        <h4><i class="fas fa-shield-alt"></i> Seguridad y Privacidad</h4>
+                        <ul>
+                            <li>Encriptación end-to-end de WhatsApp</li>
+                            <li>Tokens seguros para APIs</li>
+                            <li>Logs de auditoría completos</li>
+                            <li>Acceso controlado por administradores</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="tech-card">
+                        <h4><i class="fas fa-chart-line"></i> Métricas y Monitoreo</h4>
+                        <ul>
+                            <li>Tiempo de respuesta en tiempo real</li>
+                            <li>Estadísticas de uso por grupo</li>
+                            <li>Alertas de sistema automatizadas</li>
+                            <li>Reportes mensuales de actividad</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="tech-card">
+                        <h4><i class="fas fa-tools"></i> Mantenimiento</h4>
+                        <ul>
+                            <li>Actualizaciones automáticas de seguridad</li>
+                            <li>Respaldos diarios automatizados</li>
+                            <li>Monitoreo 24/7 del sistema</li>
+                            <li>Soporte técnico especializado</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="financiero" class="section">
+            <div class="card fade-in">
+                <h2>Análisis Financiero Detallado</h2>
+                
+                <div class="highlight">
+                    <strong>Estructura de Costos Realista:</strong><br>
+                    • Base operativa: $1,200 anuales (hasta 100 clientes)<br>
+                    • Implementación alarmas: $50 por barrio (una sola vez)<br>
+                    • Escalamiento: +20% costos operativos cada 100 clientes adicionales
+                </div>
+                
+                <div class="tabs">
+                    <button class="tab active" onclick="showTab('anual')">Análisis Completo</button>
+                    <button class="tab" onclick="showTab('mensual')">Modelo Mensual</button>
+                    <button class="tab" onclick="showTab('comparacion')">Escalamiento</button>
+                </div>
+
+                <div id="anual" class="tab-content active">
+                    <div class="table-container">
+                        <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Escenario</th>
+                                <th>Barrios</th>
+                                <th>Ingresos Anuales</th>
+                                <th>Costos Operativos</th>
+                                <th>Costos Implementación</th>
+                                <th>Ganancia Total</th>
+                                <th>Ganancia/Socio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background: #fff3cd;">
+                                <td><strong>Break-even Real</strong></td>
+                                <td>3</td>
+                                <td>$1,800</td>
+                                <td>$360</td>
+                                <td>$150</td>
+                                <td>$1,290</td>
+                                <td>$430</td>
+                            </tr>
+                            <tr style="background: #e8f5e8;">
+                                <td><strong>Meta Inicial</strong></td>
+                                <td>5</td>
+                                <td>$3,000</td>
+                                <td>$600</td>
+                                <td>$250</td>
+                                <td>$2,150</td>
+                                <td>$717</td>
+                            </tr>
+                            <tr style="background: #e3f2fd;">
+                                <td><strong>Primera Fase</strong></td>
+                                <td>10</td>
+                                <td>$6,000</td>
+                                <td>$1,200</td>
+                                <td>$500</td>
+                                <td>$4,300</td>
+                                <td>$1,433</td>
+                            </tr>
+                            <tr style="background: #f3e5f5;">
+                                <td><strong>Expansión</strong></td>
+                                <td>15</td>
+                                <td>$9,000</td>
+                                <td>$1,800</td>
+                                <td>$750</td>
+                                <td>$6,450</td>
+                                <td>$2,150</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Escala Grande</strong></td>
+                                <td>20</td>
+                                <td>$12,000</td>
+                                <td>$2,400</td>
+                                <td>$1,000</td>
+                                <td>$8,600</td>
+                                <td>$2,867</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    </div>
+                    
+                    <div style="margin-top: 25px; background: #f8f9fa; padding: 20px; border-radius: 10px;">
+                        <h4>📝 Notas sobre Costos:</h4>
+                        <ul style="margin-top: 10px;">
+                            <li><strong>Costos Operativos:</strong> $120 anuales por barrio ($10 mensuales) - servidores, APIs, mantenimiento</li>
+                            <li><strong>Implementación:</strong> $50 por barrio (pago único) - configuración inicial de alarmas y sistemas</li>
+                            <li><strong>Escalamiento:</strong> +20% costos operativos anuales cada 100 clientes nuevos</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div id="mensual" class="tab-content">
+                    <div class="highlight">
+                        <strong>Modelo Mensual: $55/mes por barrio = $660 anuales</strong><br>
+                        Incluye mismos costos de implementación y operación
+                    </div>
+                    <div class="table-container">
+                        <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Escenario</th>
+                                <th>Barrios</th>
+                                <th>Ingreso Anual</th>
+                                <th>Costos Totales</th>
+                                <th>Ganancia Total</th>
+                                <th>Ganancia/Socio (Mensual)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Meta Inicial</strong></td>
+                                <td>3</td>
+                                <td>$1,980</td>
+                                <td>$510</td>
+                                <td>$1,470</td>
+                                <td>$41</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Operación Estable</strong></td>
+                                <td>5</td>
+                                <td>$3,300</td>
+                                <td>$850</td>
+                                <td>$2,450</td>
+                                <td>$68</td>
+                            </tr>
+                            <tr style="background: #e3f2fd;">
+                                <td><strong>Primera Fase</strong></td>
+                                <td>10</td>
+                                <td>$6,600</td>
+                                <td>$1,700</td>
+                                <td>$4,900</td>
+                                <td>$136</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+
+                <div id="comparacion" class="tab-content">
+                    <div class="chart-container">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                    
+                    <h4 style="margin: 25px 0 15px; color: #2c3e50;">Proyección de Costos por Escala</h4>
+                    <div class="table-container">
+                        <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Clientes Totales</th>
+                                <th>Barrios</th>
+                                <th>Costos Operativos/Año</th>
+                                <th>Implementación Total</th>
+                                <th>Costos Totales</th>
+                                <th>Ingresos ($600/barrio)</th>
+                                <th>Margen %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>50</td>
+                                <td>5</td>
+                                <td>$600</td>
+                                <td>$250</td>
+                                <td>$850</td>
+                                <td>$3,000</td>
+                                <td>72%</td>
+                            </tr>
+                            <tr>
+                                <td>100</td>
+                                <td>10</td>
+                                <td>$1,200</td>
+                                <td>$500</td>
+                                <td>$1,700</td>
+                                <td>$6,000</td>
+                                <td>72%</td>
+                            </tr>
+                            <tr>
+                                <td>150</td>
+                                <td>15</td>
+                                <td>$1,800</td>
+                                <td>$750</td>
+                                <td>$2,550</td>
+                                <td>$9,000</td>
+                                <td>72%</td>
+                            </tr>
+                            <tr style="background: #e3f2fd;">
+                                <td>200</td>
+                                <td>20</td>
+                                <td>$2,400</td>
+                                <td>$1,000</td>
+                                <td>$3,400</td>
+                                <td>$12,000</td>
+                                <td>72%</td>
+                            </tr>
+                            <tr>
+                                <td>300</td>
+                                <td>30</td>
+                                <td>$3,600</td>
+                                <td>$1,500</td>
+                                <td>$5,100</td>
+                                <td>$18,000</td>
+                                <td>72%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="desglose" class="section">
+            <div class="card fade-in">
+                <h2>Desglose por Casa y Socio</h2>
+                
+                <div class="two-column">
+                    <div>
+                        <h3 style="margin-bottom: 20px; color: #2c3e50;">💰 Ingresos por Casa</h3>
+                        <div class="breakdown-grid">
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">$60</div>
+                                <div class="breakdown-label">Anuales por casa</div>
+                            </div>
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">$5</div>
+                                <div class="breakdown-label">Mensuales por casa</div>
+                            </div>
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">$0.16</div>
+                                <div class="breakdown-label">Diarios por casa</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 style="margin-bottom: 20px; color: #2c3e50;">📊 Costos Reales por Casa</h3>
+                        <div class="breakdown-grid">
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">$17</div>
+                                <div class="breakdown-label">Costo total año 1 (anual)</div>
+                            </div>
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">$12</div>
+                                <div class="breakdown-label">Costo años siguientes (anual)</div>
+                            </div>
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">$5</div>
+                                <div class="breakdown-label">Implementación (pago único)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight">
+                    <strong>Ganancia neta por casa:</strong><br>
+                    • Año 1: $43 anuales • $3.58 mensuales<br>
+                    • Años siguientes: $48 anuales • $4 mensuales<br>
+                    <em>Los márgenes mejoran después del primer año (sin costos de implementación)</em>
+                </div>
+
+                <h3 style="margin: 30px 0 20px; color: #2c3e50;">👥 Ganancias por Socio (Mensuales)</h3>
+                <div class="chart-container">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+
+                <div class="breakdown-grid">
+                    <div class="breakdown-card">
+                        <div class="breakdown-value">$36</div>
+                        <div class="breakdown-label">Con 3 barrios (mensual)</div>
+                    </div>
+                    <div class="breakdown-card">
+                        <div class="breakdown-value">$119</div>
+                        <div class="breakdown-label">Con 10 barrios (mensual)</div>
+                    </div>
+                    <div class="breakdown-card">
+                        <div class="breakdown-value">$179</div>
+                        <div class="breakdown-label">Con 15 barrios (mensual)</div>
+                    </div>
+                    <div class="breakdown-card">
+                        <div class="breakdown-value">$239</div>
+                        <div class="breakdown-label">Con 20 barrios (mensual)</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="precios" class="section">
+            <div class="card fade-in">
+                <h2>Estrategia de Precios: $600 vs $500</h2>
+                
+                <div class="highlight">
+                    <strong>Rango de Negociación:</strong> Flexibilidad entre $500-$600 anuales permite adaptarse al presupuesto del barrio sin comprometer rentabilidad
+                </div>
+
+                <div class="two-column">
+                    <div style="background: #e8f5e8; padding: 25px; border-radius: 15px; border-left: 5px solid #27ae60;">
+                        <h3>💰 Precio Premium - $600/año</h3>
+                        <div class="breakdown-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">$60</div>
+                                <div class="breakdown-label">Por casa/año</div>
+                            </div>
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">$5</div>
+                                <div class="breakdown-label">Por casa/mes</div>
+                            </div>
+                        </div>
+                        <p style="margin-top: 15px; color: #27ae60;"><strong>Para clientes:</strong> Máximo valor percibido, ideal para barrios de mayor poder adquisitivo</p>
+                    </div>
+                    
+                    <div style="background: #fff3cd; padding: 25px; border-radius: 15px; border-left: 5px solid #ffc107;">
+                        <h3>🤝 Precio Competitivo - $500/año</h3>
+                        <div class="breakdown-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">$50</div>
+                                <div class="breakdown-label">Por casa/año</div>
+                            </div>
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">$4.17</div>
+                                <div class="breakdown-label">Por casa/mes</div>
+                            </div>
+                        </div>
+                        <p style="margin-top: 15px; color: #856404;"><strong>Para clientes:</strong> Excelente relación precio-valor, accesible para la mayoría de barrios</p>
+                    </div>
+                </div>
+
+                <h3 style="margin: 30px 0 20px; color: #2c3e50;">📊 Impacto en Ganancias por Socio</h3>
+                
+                <div class="table-container">
+                    <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Barrios</th>
+                            <th>Precio $600 - Ganancia/Socio (Anual)</th>
+                            <th>Precio $600 - Ganancia/Socio (Mensual)</th>
+                            <th>Precio $500 - Ganancia/Socio (Anual)</th>
+                            <th>Precio $500 - Ganancia/Socio (Mensual)</th>
+                            <th>Diferencia Anual</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>3</strong></td>
+                            <td>$430</td>
+                            <td>$36</td>
+                            <td>$330</td>
+                            <td>$28</td>
+                            <td style="color: #e74c3c;">-$100</td>
+                        </tr>
+                        <tr>
+                            <td><strong>5</strong></td>
+                            <td>$717</td>
+                            <td>$60</td>
+                            <td>$550</td>
+                            <td>$46</td>
+                            <td style="color: #e74c3c;">-$167</td>
+                        </tr>
+                        <tr style="background: #e3f2fd;">
+                            <td><strong>10</strong></td>
+                            <td>$1,433</td>
+                            <td>$119</td>
+                            <td>$1,100</td>
+                            <td>$92</td>
+                            <td style="color: #e74c3c;">-$333</td>
+                        </tr>
+                        <tr>
+                            <td><strong>15</strong></td>
+                            <td>$2,150</td>
+                            <td>$179</td>
+                            <td>$1,650</td>
+                            <td>$138</td>
+                            <td style="color: #e74c3c;">-$500</td>
+                        </tr>
+                        <tr>
+                            <td><strong>20</strong></td>
+                            <td>$2,867</td>
+                            <td>$239</td>
+                            <td>$2,200</td>
+                            <td>$183</td>
+                            <td style="color: #e74c3c;">-$667</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="chart-container">
+                    <canvas id="pricingChart"></canvas>
+                </div>
+
+                <div class="two-column" style="margin-top: 30px;">
+                    <div style="background: #f8f9fa; padding: 25px; border-radius: 15px;">
+                        <h4 style="color: #2c3e50; margin-bottom: 15px;">🎯 Punto de Equilibrio Real</h4>
+                        <div class="breakdown-grid" style="grid-template-columns: 1fr; gap: 10px;">
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">1.4</div>
+                                <div class="breakdown-label">Barrios con precio $600 (año 1)</div>
+                            </div>
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">1.7</div>
+                                <div class="breakdown-label">Barrios con precio $500 (año 1)</div>
+                            </div>
+                            <div class="breakdown-card">
+                                <div class="breakdown-value">0.2</div>
+                                <div class="breakdown-label">Barrios necesarios (años siguientes)</div>
+                            </div>
+                        </div>
+                        <p style="margin-top: 15px; font-size: 0.9em; color: #666;">Después del primer año, solo necesitan 1 barrio cada 5 para cubrir costos operativos</p>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 25px; border-radius: 15px;">
+                        <h4 style="color: #2c3e50; margin-bottom: 15px;">💡 Estrategia Recomendada</h4>
+                        <ul style="margin-top: 15px; font-size: 0.95em;">
+                            <li><strong>Iniciar en $600</strong> con barrios premium</li>
+                            <li><strong>Usar $500</strong> para cerrar barrios indecisos</li>
+                            <li><strong>Mantener $600</strong> como precio estándar</li>
+                            <li><strong>$500</strong> como descuento estratégico</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="highlight" style="margin-top: 25px;">
+                    <strong>Conclusión:</strong> Incluso a $500, los márgenes siguen siendo excelentes (67% vs 72%). 
+                    Los costos realistas de implementación y escalamiento mantienen la rentabilidad alta. 
+                    Después del primer año, los márgenes aumentan significativamente al eliminar costos de implementación.
+                </div>
+            </div>
+        </section>
+
+        <section id="oportunidad" class="section">
+            <div class="card fade-in">
+                <h2>Oportunidad de Financiamiento Gubernamental</h2>
+                
+                <div class="two-column">
+                    <div style="background: #d5f4e6; padding: 25px; border-radius: 15px; border-left: 5px solid #27ae60;">
+                        <h3>✓ Ventajas Competitivas</h3>
+                        <ul style="margin-top: 15px;">
+                            <li>Tecnología accesible (WhatsApp)</li>
+                            <li>Costo 70% menor vs. sistemas tradicionales</li>
+                            <li>Implementación inmediata</li>
+                            <li>Sin infraestructura física requerida</li>
+                            <li>Escalabilidad demostrada</li>
+                            <li>Adopción inmediata por usuarios mayores</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background: #fff3cd; padding: 25px; border-radius: 15px; border-left: 5px solid #ffc107;">
+                        <h3>⚡ Urgencias del Mercado</h3>
+                        <ul style="margin-top: 15px;">
+                            <li>Fondos gubernamentales disponibles ahora</li>
+                            <li>Competencia limitada en el segmento</li>
+                            <li>Adopción WhatsApp alta en Chile (95%)</li>
+                            <li>Necesidad post-pandemia de seguridad</li>
+                            <li>Tendencia hacia soluciones comunitarias</li>
+                            <li>Presupuestos municipales asignados</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="highlight">
+                    <strong>Propuesta Gubernamental:</strong> Paquetes de seguridad barrial a $600 anuales por 10 casas, 
+                    con monitoreo 24/7, alertas automáticas, reportes mensuales y métricas de seguridad comunitaria.
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="scalingChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="accion" class="section">
+            <div class="card fade-in">
+                <h2>Proyección - Primeros 30 Clientes</h2>
+                
+                <div style="margin: 30px 0;">
+                    <h4 style="margin-bottom: 15px;">Progreso hacia Meta Inicial (3 barrios = 30 casas)</h4>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 10%" id="progressBar"></div>
+                    </div>
+                    <p style="text-align: center; margin-top: 15px; font-weight: 500;">0 / 30 casas confirmadas • Meta: 3 barrios en 60 días</p>
+                </div>
+
+                <div class="table-container">
+                    <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Fase</th>
+                            <th>Barrios</th>
+                            <th>Casas</th>
+                            <th>Ingresos Anuales</th>
+                            <th>Costos Totales</th>
+                            <th>Ganancia/Socio (Anual)</th>
+                            <th>Ganancia/Socio (Mensual)</th>
+                            <th>Timeline</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background: #fff3cd;">
+                            <td><strong>Fase 1</strong></td>
+                            <td>3</td>
+                            <td>30</td>
+                            <td>$1,800</td>
+                            <td>$510</td>
+                            <td>$430</td>
+                            <td>$36</td>
+                            <td>Mes 1-2</td>
+                        </tr>
+                        <tr style="background: #d1ecf1;">
+                            <td><strong>Fase 2</strong></td>
+                            <td>5</td>
+                            <td>50</td>
+                            <td>$3,000</td>
+                            <td>$850</td>
+                            <td>$717</td>
+                            <td>$60</td>
+                            <td>Mes 3-4</td>
+                        </tr>
+                        <tr style="background: #d4edda;">
+                            <td><strong>Fase 3</strong></td>
+                            <td>10</td>
+                            <td>100</td>
+                            <td>$6,000</td>
+                            <td>$1,700</td>
+                            <td>$1,433</td>
+                            <td>$119</td>
+                            <td>Mes 5-6</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div class="cta-section fade-in">
+            <h2>Ventana de Oportunidad Crítica</h2>
+            <p style="font-size: 1.3em; margin-bottom: 30px; font-weight: 300;">
+                Convergencia única: tecnología desarrollada + demanda alta + fondos disponibles + competencia limitada + flexibilidad de precios
+            </p>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 25px; margin: 30px 0;">
+                <div style="background: rgba(255,255,255,0.1); padding: 25px; border-radius: 15px; backdrop-filter: blur(5px);">
+                    <h4>📅 Semana 1-2</h4>
+                    <p>Identificar 10 barrios objetivo y presentaciones iniciales ($600 premium)</p>
+                </div>
+                <div style="background: rgba(255,255,255,0.1); padding: 25px; border-radius: 15px; backdrop-filter: blur(5px);">
+                    <h4>🎯 Semana 3-4</h4>
+                    <p>Cerrar primeros 3 barrios (flexibilidad $500-$600 según capacidad)</p>
+                </div>
+                <div style="background: rgba(255,255,255,0.1); padding: 25px; border-radius: 15px; backdrop-filter: blur(5px);">
+                    <h4>🚀 Mes 2-3</h4>
+                    <p>Expansión a 10 barrios + propuesta gubernamental ($600 estándar)</p>
+                </div>
+            </div>
+            
+            <div style="background: rgba(255,255,255,0.15); padding: 25px; border-radius: 15px; margin-top: 30px;">
+                <p style="font-size: 1.2em; font-weight: 500; margin-bottom: 15px;">
+                    <strong>Decisión Estratégica:</strong>
+                </p>
+                <p style="font-size: 1.1em; font-weight: 300; margin-bottom: 20px;">
+                    Proceder con adquisición agresiva de primeros 30 clientes con flexibilidad de precios $500-$600. 
+                    Ambos precios mantienen márgenes excelentes y permiten capturar diferentes segmentos de mercado.
+                </p>
+                
+                <div style="background: rgba(255,255,255,0.2); padding: 20px; border-radius: 10px; border-left: 4px solid #fff;">
+                    <p style="font-size: 1.1em; font-weight: 500; margin-bottom: 10px;">
+                        <strong>💡 Acción Inmediata:</strong>
+                    </p>
+                    <p style="font-size: 1em; font-weight: 300;">
+                        Necesitamos conseguir al menos 2-3 barrios para cubrir los primeros 6 meses de operación. 
+                        Considerando que los costos son escalables linealmente de nivel anual a mensual, tendremos un costo inicial de:
+                    </p>
+                    <ul style="margin: 15px 0; font-size: 1em; font-weight: 300;">
+                        <li><strong>2 barrios (6 meses):</strong> $220 USD ($120 operación + $100 implementación)</li>
+                        <li><strong>3 barrios (6 meses):</strong> $330 USD ($180 operación + $150 implementación)</li>
+                    </ul>
+                    <p style="font-size: 1em; font-weight: 300;">
+                        Con estos números, cada barrio que cerremos a $600 anuales nos da $300 de flujo en los primeros 6 meses, 
+                        cubriendo fácilmente los costos y generando ganancias inmediatas.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Intersection Observer para animaciones
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Smooth scrolling para navegación
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Función para cambiar tabs
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        // Configuración de Chart.js
+        Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+        Chart.defaults.color = '#2c3e50';
+
+        // Gráfico de ingresos vs costos
+        const ctx1 = document.getElementById('revenueChart').getContext('2d');
+        new Chart(ctx1, {
+            type: 'line',
+            data: {
+                labels: ['2 Barrios', '3 Barrios', '5 Barrios', '10 Barrios', '15 Barrios', '20 Barrios'],
+                datasets: [{
+                    label: 'Ingresos Anuales ($)',
+                    data: [1200, 1800, 3000, 6000, 9000, 12000],
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }, {
+                    label: 'Costos Totales ($)',
+                    data: [340, 510, 850, 1700, 2550, 3400],
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }, {
+                    label: 'Costos Operativos ($)',
+                    data: [240, 360, 600, 1200, 1800, 2400],
+                    borderColor: '#f39c12',
+                    backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                    tension: 0.4,
+                    fill: false,
+                    borderDash: [5, 5]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Proyección Realista: Ingresos vs Costos (Incluye Implementación)',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gráfico de comparación anual vs mensual
+        setTimeout(() => {
+            const ctx2 = document.getElementById('comparisonChart').getContext('2d');
+            new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: ['3 Barrios', '5 Barrios', '10 Barrios', '15 Barrios'],
+                    datasets: [{
+                        label: 'Modelo Anual ($600/barrio)',
+                        data: [1290, 2150, 4300, 6450],
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: '#667eea',
+                        borderWidth: 2
+                    }, {
+                        label: 'Modelo Mensual ($55/mes)',
+                        data: [1470, 2450, 4900, 7350],
+                        backgroundColor: 'rgba(118, 75, 162, 0.8)',
+                        borderColor: '#764ba2',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Ganancia Total Anual: Modelo Anual vs Mensual (Costos Realistas)',
+                            font: { size: 16, weight: 'bold' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }, 100);
+
+        // Gráfico de ganancias mensuales por socio
+        setTimeout(() => {
+            const ctx3 = document.getElementById('monthlyChart').getContext('2d');
+            new Chart(ctx3, {
+                type: 'doughnut',
+                data: {
+                    labels: ['3 Barrios', '5 Barrios', '10 Barrios', '15 Barrios'],
+                    datasets: [{
+                        data: [36, 60, 119, 179],
+                        backgroundColor: [
+                            'rgba(102, 126, 234, 0.8)',
+                            'rgba(118, 75, 162, 0.8)',
+                            'rgba(46, 204, 113, 0.8)',
+                            'rgba(231, 76, 60, 0.8)'
+                        ],
+                        borderWidth: 3,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Ganancias Mensuales por Socio ($USD) - Costos Realistas',
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }, 200);
+
+        // Gráfico de escalabilidad
+        setTimeout(() => {
+            const ctx4 = document.getElementById('scalingChart').getContext('2d');
+            new Chart(ctx4, {
+                type: 'line',
+                data: {
+                    labels: ['Mes 1', 'Mes 2', 'Mes 3', 'Mes 4', 'Mes 5', 'Mes 6'],
+                    datasets: [{
+                        label: 'Barrios Acumulados',
+                        data: [1, 3, 5, 7, 10, 15],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.3)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: 'Ganancia Mensual por Socio ($)',
+                        data: [12, 36, 60, 85, 119, 179],
+                        borderColor: '#27ae60',
+                        backgroundColor: 'rgba(39, 174, 96, 0.3)',
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Proyección de Crecimiento - 6 Meses (Costos Realistas)',
+                            font: { size: 16, weight: 'bold' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Número de Barrios'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Ganancia Mensual ($)'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                        }
+                    }
+                }
+            });
+        }, 300);
+
+        // Gráfico de comparación de precios
+        setTimeout(() => {
+            const ctx5 = document.getElementById('pricingChart').getContext('2d');
+            new Chart(ctx5, {
+                type: 'bar',
+                data: {
+                    labels: ['3 Barrios', '5 Barrios', '10 Barrios', '15 Barrios', '20 Barrios'],
+                    datasets: [{
+                        label: 'Ganancia por Socio/Año - $600',
+                        data: [430, 717, 1433, 2150, 2867],
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: '#667eea',
+                        borderWidth: 2
+                    }, {
+                        label: 'Ganancia por Socio/Año - $500',
+                        data: [330, 550, 1100, 1650, 2200],
+                        backgroundColor: 'rgba(255, 193, 7, 0.8)',
+                        borderColor: '#ffc107',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Comparación de Ganancias por Socio: $600 vs $500 (Costos Realistas)',
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }, 400);
+
+        // Animación de la barra de progreso
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const progressBar = document.getElementById('progressBar');
+                progressBar.style.width = '15%';
+            }, 1000);
+        });
+
+        // Interactive System Flow Functions
+        function showSystemFlow(flowType) {
+            // Hide all flow contents
+            document.querySelectorAll('.flow-content').forEach(content => {
+                content.style.display = 'none';
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.flow-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected flow
+            const selectedFlow = document.getElementById(flowType + '-flow');
+            if (selectedFlow) {
+                selectedFlow.style.display = 'block';
+                selectedFlow.classList.add('active');
+            }
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+            
+            // Initialize tooltips if showing overview
+            if (flowType === 'overview') {
+                initializeTooltips();
+            }
+        }
+
+        // Initialize tooltips for tech nodes
+        function initializeTooltips() {
+            setTimeout(() => {
+                tippy('[data-tooltip]', {
+                    content: (reference) => reference.getAttribute('data-tooltip'),
+                    theme: 'dark',
+                    placement: 'top',
+                    animation: 'fade',
+                    duration: [300, 250],
+                    arrow: true,
+                    maxWidth: 350,
+                    interactive: true
+                });
+            }, 100);
+        }
+
+        // Demo simulation functions
+        let demoRunning = false;
+        let demoTimeout;
+
+        function runDemo() {
+            if (demoRunning) return;
+            
+            demoRunning = true;
+            resetDemo();
+            
+            const steps = document.querySelectorAll('.demo-step');
+            let currentStep = 0;
+            
+            function activateNextStep() {
+                if (currentStep < steps.length) {
+                    steps[currentStep].classList.add('active');
+                    
+                    // Add visual feedback
+                    const stepNumber = currentStep + 1;
+                    const delays = [0, 500, 1500, 2000, 5000, 10000, 15000]; // Realistic timing
+                    
+                    currentStep++;
+                    
+                    if (currentStep < steps.length) {
+                        demoTimeout = setTimeout(activateNextStep, delays[currentStep] || 2000);
+                    } else {
+                        demoRunning = false;
+                        
+                        // Show completion message
+                        setTimeout(() => {
+                            alert('🎉 Simulación completada exitosamente!\n\nPipeline de emergencia ejecutado en menos de 20 segundos.\nTodos los sistemas funcionando correctamente.');
+                        }, 1000);
+                    }
+                }
+            }
+            
+            activateNextStep();
+        }
+
+        function resetDemo() {
+            clearTimeout(demoTimeout);
+            demoRunning = false;
+            
+            document.querySelectorAll('.demo-step').forEach(step => {
+                step.classList.remove('active');
+            });
+        }
+
+        // Initialize system when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tooltips
+            initializeTooltips();
+            
+            // Add hover effects to tech cards
+            document.querySelectorAll('.tech-card').forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-5px) scale(1.02)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0) scale(1)';
+                });
+            });
+            
+            // Add click effects to tech nodes
+            document.querySelectorAll('.tech-node').forEach(node => {
+                node.addEventListener('click', function() {
+                    this.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        this.style.transform = 'translateY(-3px) scale(1.05)';
+                    }, 150);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
