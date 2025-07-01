@@ -30,15 +30,24 @@ class CommandProcessor:
             # Parse the WhatsApp message
             message = self.whatsapp.parse_whatsapp_webhook(payload)
             if not message:
-                print("Failed to parse WhatsApp message")
+                # No message to process (could be status update, non-text message, etc.)
                 return
             
-            print(f"Processing message from {message.contact_name or message.from_phone}: {message.text}")
+            print(f"🔄 WEBHOOK DEBUG - Processing message from {message.contact_name or message.from_phone}")
+            print(f"🔄 WEBHOOK DEBUG - Message text: '{message.text[:200]}...'")
+            print(f"🔄 WEBHOOK DEBUG - Chat ID: {message.chat_id}")
+            print(f"🔄 WEBHOOK DEBUG - From phone: {message.from_phone}")
             
             # First, handle group management (ensure group folders exist for group messages)
-            await self.whatsapp.process_group_management(message)
+            # Skip group management for @info and all @ commands to avoid blocking
+            if not message.text.strip().startswith('@'):
+                print(f"🔄 WEBHOOK DEBUG - Processing group management...")
+                await self.whatsapp.process_group_management(message)
+            else:
+                print(f"🔄 WEBHOOK DEBUG - Skipping group management for @ command")
             
             # Then process the command
+            print(f"🔄 WEBHOOK DEBUG - About to process command...")
             await self._process_command(message)
             
         except Exception as e:
@@ -49,36 +58,60 @@ class CommandProcessor:
         try:
             # Clean and validate command - handle SOS with flexible formatting
             raw_text = message.text.strip()
+            print(f"🔍 COMMAND DEBUG - Processing: '{raw_text}' (length: {len(raw_text)})")
+            print(f"🔍 COMMAND DEBUG - First 100 chars: '{raw_text[:100]}...'")
+            print(f"🔍 COMMAND DEBUG - Starts with @info: {raw_text.lower().startswith('@info')}")
+            print(f"🔍 COMMAND DEBUG - Starts with @editar: {raw_text.lower().startswith('@editar')}")
+            print(f"🔍 COMMAND DEBUG - Contains SOS: {'SOS' in raw_text.upper()}")
+            print(f"🔍 COMMAND DEBUG - Contains SISTEMA: {'SISTEMA' in raw_text.upper()}")
+            print(f"🔍 COMMAND DEBUG - Contains ACTUALIZADO: {'ACTUALIZADO' in raw_text.upper()}")
+            print(f"🔍 COMMAND DEBUG - Is SOS command: {self._is_sos_command(raw_text)}")
+            print(f"🔍 COMMAND DEBUG - Message type determination:")
             
             # Check if message starts with SOS (case insensitive, with optional spaces)
             if self._is_sos_command(raw_text):
+                print(f"🚨 COMMAND DEBUG - TRIGGERING SOS PIPELINE")
+                # SOS works in both individual and group chats
                 # Extract incident type from message (everything after SOS)
                 incident_type = self._extract_incident_type(raw_text)
                 await self._handle_sos_command(message, incident_type)
+            elif raw_text.lower().startswith('@info'):
+                # Handle @info command to show system information (works everywhere)
+                print(f"ℹ️ Detected @info command in: '{raw_text}'")
+                await self._handle_info_command(message)
+            elif not message.chat_id.endswith("@g.us"):
+                # All other commands require group chats, silently ignore individual messages
+                print(f"📨 Ignoring non-group command: {raw_text[:20]}... (individual chat)")
+                return
             elif raw_text.lower().startswith('@editar'):
-                # Handle @editar commands for member data editing
+                # Handle @editar commands for member data editing (groups only)
                 await self._handle_editar_command(message, raw_text)
             elif raw_text.lower().startswith('@exportar'):
-                # Handle @exportar commands for bulk data export
+                # Handle @exportar commands for bulk data export (groups only)
                 await self._handle_export_command(message, raw_text)
             elif raw_text.lower().startswith('@importar'):
-                # Handle @importar commands for bulk data import
+                # Handle @importar commands for bulk data import (groups only)
                 await self._handle_import_command(message, raw_text)
             elif raw_text.lower().startswith('@plantilla'):
-                # Handle @plantilla command for CSV template
+                # Handle @plantilla command for CSV template (groups only)
                 await self._handle_template_command(message)
             elif raw_text.lower().startswith('@backup'):
-                # Handle @backup commands for data backup
+                # Handle @backup commands for data backup (groups only)
                 await self._handle_backup_command(message, raw_text)
             elif raw_text.lower().startswith('@restore'):
-                # Handle @restore commands for data restoration
+                # Handle @restore commands for data restoration (groups only)
                 await self._handle_restore_command(message, raw_text)
             elif raw_text.lower().startswith('@backups'):
-                # Handle @backups command to list available backups
+                # Handle @backups command to list available backups (groups only)
                 await self._handle_list_backups_command(message)
             else:
                 # Ignore all other commands silently
-                print(f"Ignoring command: {raw_text}")
+                print(f"🔍 COMMAND DEBUG - IGNORING COMMAND: '{raw_text[:50]}...'")
+                print(f"🔍 COMMAND DEBUG - Command ignored because:")
+                print(f"   - Not SOS: {not self._is_sos_command(raw_text)}")
+                print(f"   - Not @info: {not raw_text.lower().startswith('@info')}")
+                print(f"   - Not @editar: {not raw_text.lower().startswith('@editar')}")
+                print(f"   - Not in group: {not message.chat_id.endswith('@g.us')}")
                 return
                 
         except Exception as e:
@@ -90,19 +123,39 @@ class CommandProcessor:
         # Clean text and normalize
         cleaned_text = text.strip().upper()
         
-        # More flexible SOS detection patterns
+        print(f"🚨 SOS DEBUG - Input text: '{text[:100]}...'")
+        print(f"🚨 SOS DEBUG - Cleaned text: '{cleaned_text[:100]}...'")
+        
+        # Don't trigger SOS on @ commands
+        if cleaned_text.startswith('@'):
+            print(f"🚨 SOS DEBUG - REJECTED: Starts with @")
+            return False
+        
+        # Don't trigger SOS on system messages (containing "SISTEMA" or "ACTUALIZADO" or "FUNCIONALIDADES")
+        if "SISTEMA" in cleaned_text or "ACTUALIZADO" in cleaned_text or "FUNCIONALIDADES" in cleaned_text:
+            print(f"🚨 SOS DEBUG - REJECTED: Contains system message keywords")
+            return False
+            
+        # Don't trigger SOS on documentation/help messages (containing bullet points or explanations)
+        if "•" in cleaned_text or "- AHORA USA" in cleaned_text or "BASE DE DATOS" in cleaned_text:
+            print(f"🚨 SOS DEBUG - REJECTED: Contains documentation/help content")
+            return False
+        
+        # More precise SOS detection patterns - avoid false positives
+        # Only match SOS at the very beginning of the message (not embedded in text)
         sos_patterns = [
-            r'\bSOS\b',           # Exact word SOS
-            r'^SOS\s*',           # SOS at start with optional spaces
-            r'\s+SOS\s*',         # SOS with spaces before and optional after
-            r'^SOS$',             # Just SOS alone
-            r'S\.?O\.?S\.?',      # S.O.S or S O S variations
+            r'^\s*SOS\b',         # SOS at start of message
+            r'^\s*S\.?O\.?S\.?\b',  # S.O.S at start of message
         ]
+        
+        print(f"🚨 SOS DEBUG - Testing patterns against: '{cleaned_text[:50]}...'")
         
         for pattern in sos_patterns:
             if re.search(pattern, cleaned_text):
+                print(f"🚨 SOS DEBUG - MATCHED PATTERN: {pattern}")
                 return True
         
+        print(f"🚨 SOS DEBUG - NO PATTERNS MATCHED")
         return False
     
     def _extract_incident_type(self, text: str) -> str:
@@ -198,11 +251,6 @@ class CommandProcessor:
     async def _handle_editar_command(self, message: WhatsAppMessage, command_text: str):
         """Handle @editar command for member data editing"""
         try:
-            # Only process @editar commands in group chats
-            if not message.chat_id.endswith("@g.us"):
-                print(f"⚠️ @editar command ignored - not a group chat")
-                return
-            
             print(f"📝 @editar command received from {message.contact_name or message.from_phone}")
             print(f"📝 Command: {command_text}")
             
@@ -240,11 +288,6 @@ class CommandProcessor:
     async def _handle_export_command(self, message: WhatsAppMessage, command_text: str):
         """Handle @exportar command for bulk data export"""
         try:
-            # Only process in group chats
-            if not message.chat_id.endswith("@g.us"):
-                print(f"⚠️ @exportar command ignored - not a group chat")
-                return
-            
             print(f"📤 @exportar command received from {message.contact_name or message.from_phone}")
             
             # Lazy load bulk data service
@@ -302,11 +345,6 @@ class CommandProcessor:
     async def _handle_import_command(self, message: WhatsAppMessage, command_text: str):
         """Handle @importar command for bulk data import"""
         try:
-            # Only process in group chats
-            if not message.chat_id.endswith("@g.us"):
-                print(f"⚠️ @importar command ignored - not a group chat")
-                return
-            
             await self._send_text_message(message.chat_id, 
                 "📥 Para importar datos:\n"
                 "1. Usa @plantilla para obtener formato CSV\n"
@@ -322,11 +360,6 @@ class CommandProcessor:
     async def _handle_template_command(self, message: WhatsAppMessage):
         """Handle @plantilla command for CSV template"""
         try:
-            # Only process in group chats
-            if not message.chat_id.endswith("@g.us"):
-                print(f"⚠️ @plantilla command ignored - not a group chat")
-                return
-            
             print(f"📋 @plantilla command received from {message.contact_name or message.from_phone}")
             
             # Lazy load bulk data service
@@ -370,11 +403,6 @@ class CommandProcessor:
     async def _handle_backup_command(self, message: WhatsAppMessage, command_text: str):
         """Handle @backup command for data backup"""
         try:
-            # Only process in group chats
-            if not message.chat_id.endswith("@g.us"):
-                print(f"⚠️ @backup command ignored - not a group chat")
-                return
-            
             print(f"💾 @backup command received from {message.contact_name or message.from_phone}")
             
             # Check admin permissions
@@ -439,11 +467,6 @@ class CommandProcessor:
     async def _handle_restore_command(self, message: WhatsAppMessage, command_text: str):
         """Handle @restore command for data restoration"""
         try:
-            # Only process in group chats
-            if not message.chat_id.endswith("@g.us"):
-                print(f"⚠️ @restore command ignored - not a group chat")
-                return
-            
             print(f"🔄 @restore command received from {message.contact_name or message.from_phone}")
             
             # Check admin permissions
@@ -500,11 +523,6 @@ class CommandProcessor:
     async def _handle_list_backups_command(self, message: WhatsAppMessage):
         """Handle @backups command to list available backups"""
         try:
-            # Only process in group chats
-            if not message.chat_id.endswith("@g.us"):
-                print(f"⚠️ @backups command ignored - not a group chat")
-                return
-            
             print(f"📋 @backups command received from {message.contact_name or message.from_phone}")
             
             # Check admin permissions
@@ -581,6 +599,56 @@ class CommandProcessor:
         except Exception as e:
             print(f"❌ Error processing @backups command: {str(e)}")
             await self._send_text_message(message.chat_id, f"❌ Error procesando comando @backups: {str(e)}")
+    
+    async def _handle_info_command(self, message: WhatsAppMessage):
+        """Handle @info command to show system information"""
+        try:
+            # @info works in both individual and group chats
+            print(f"ℹ️ @info command received from {message.contact_name or message.from_phone}")
+            
+            # Generate system information message
+            info_message = f"""🚨{'='*60}
+🚨 WHATSAPP EMERGENCY COMMAND SYSTEM INITIALIZED
+🚨{'='*60}
+
+📢 CONFIGURED TRIGGER KEYWORDS:
+   1. 'SOS' - Activates emergency response system
+
+🎯 SUPPORTED MESSAGE PATTERNS:
+   • SOS → EMERGENCIA GENERAL
+   • sos → EMERGENCIA GENERAL
+   • SOS INCENDIO → INCENDIO
+   • SOS EMERGENCIA MÉDICA → EMERGENCIA MÉDICA
+   • SOS ACCIDENTE VEHICULAR → ACCIDENTE VEHICULAR (max 2 words)
+   • S.O.S TERREMOTO → TERREMOTO
+   • Any message containing SOS triggers emergency response
+
+📱 TARGET GROUP CHAT: TEST_ALARM (120363400467632358@g.us)
+🔧 DEVICE CONTROL: Sonoff switches integrated
+🎤 VOICE ALERTS: OpenAI TTS (Spanish)
+📷 IMAGE ALERTS: ✅ Available
+⚡ STATUS: 🟢 OPERATIONAL
+
+📝 AVAILABLE COMMANDS:
+   • @info - Show this system information
+   • @editar - Edit member data (admins only)
+   • @exportar [csv/json] - Export member data
+   • @importar - Import member data
+   • @plantilla - Get CSV template
+   • @backup [group/full] - Create backup
+   • @restore [backup_name] - Restore backup
+   • @backups - List available backups
+
+🚨{'='*60}
+🚨 EMERGENCY SYSTEM READY FOR WHATSAPP MESSAGES
+🚨{'='*60}"""
+
+            await self._send_text_message(message.chat_id, info_message)
+            print("✅ @info system information sent")
+                
+        except Exception as e:
+            print(f"❌ Error processing @info command: {str(e)}")
+            await self._send_text_message(message.chat_id, f"❌ Error procesando comando @info: {str(e)}")
     
     async def _handle_test_command(self, message: WhatsAppMessage):
         """Handle TEST command - do blink pattern and send text response"""

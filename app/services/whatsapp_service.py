@@ -19,7 +19,7 @@ class WhatsAppService:
         self.max_processed_ids = 1000  # Limit to prevent memory issues
         
         # DEVELOPMENT MODE: Allow processing own messages for testing
-        self.development_mode = os.getenv("DEVELOPMENT_MODE", "true").lower() == "true"
+        self.development_mode = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
         if self.development_mode:
             print("🔧 DEVELOPMENT MODE ENABLED - Processing own messages for testing")
         
@@ -37,9 +37,24 @@ class WhatsAppService:
             print(f"📨 Full payload: {payload}")
             print(f"📨 Currently processed message IDs: {list(self.processed_message_ids)[-10:]}")
             
-            # Skip status updates (delivery confirmations)
+            # Skip status updates, delivery confirmations, and other non-message events
             if "statuses" in payload:
                 print("📨 Skipping status update webhook")
+                return None
+            
+            # Skip non-text message types early
+            message_type = None
+            if "messages" in payload and payload["messages"]:
+                message_type = payload["messages"][0].get("type", "")
+            elif "chats_updates" in payload and payload["chats_updates"]:
+                for chat_update in payload["chats_updates"]:
+                    if "after_update" in chat_update and "last_message" in chat_update["after_update"]:
+                        message_type = chat_update["after_update"]["last_message"].get("type", "")
+                        break
+            
+            # Only process text messages
+            if message_type and message_type != "text":
+                print(f"📨 Skipping non-text message type: {message_type}")
                 return None
             
             # Handle direct messages format - this is the PRIMARY format, process first
@@ -57,6 +72,16 @@ class WhatsAppService:
                 
                 if message.get("type") == "text":
                     message_id = message.get("id", "")
+                    message_timestamp = message.get("timestamp", 0)
+                    current_time = int(time.time())
+                    message_age = current_time - message_timestamp
+                    
+                    print(f"📨 Direct message timestamp: {message_timestamp}, current: {current_time}, age: {message_age}s")
+                    
+                    # Skip messages older than 30 seconds to avoid processing old messages
+                    if message_age > 30:
+                        print(f"📨 Skipping old direct message (age: {message_age}s)")
+                        return None
                     
                     # Check for duplicate message
                     if message_id in self.processed_message_ids:
@@ -103,6 +128,11 @@ class WhatsAppService:
                 print(f"📨 Chat updates found: {len(chat_updates)}")
                 
                 for chat_update in chat_updates:
+                    # Skip chat updates that are just timestamp changes without new messages
+                    changes = chat_update.get("changes", [])
+                    if changes == ["timestamp"]:
+                        print(f"📨 Skipping timestamp-only chat update")
+                        continue
                     # Look for new incoming messages in after_update
                     if "after_update" in chat_update:
                         after_update = chat_update["after_update"]
