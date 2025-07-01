@@ -1,5 +1,7 @@
 import asyncio
 import re
+import time
+import os
 from typing import Dict, Any, Optional
 from datetime import datetime
 from app.models import WhatsAppMessage, DeviceCommand
@@ -23,6 +25,9 @@ class CommandProcessor:
         self._member_editor = None
         self._bulk_data_service = None
         self._backup_service = None
+        
+        # Message cache for @tailor command (stores recent 3 messages per chat)
+        self._message_cache = {}  # {chat_id: [message1, message2, message3]}
     
     async def process_whatsapp_message(self, payload: Dict[str, Any]):
         """Process incoming WhatsApp message and execute commands"""
@@ -45,6 +50,9 @@ class CommandProcessor:
                 await self.whatsapp.process_group_management(message)
             else:
                 print(f"🔄 WEBHOOK DEBUG - Skipping group management for @ command")
+            
+            # Cache message for @tailor command (before processing commands)
+            self._cache_message(message)
             
             # Then process the command
             print(f"🔄 WEBHOOK DEBUG - About to process command...")
@@ -110,6 +118,9 @@ class CommandProcessor:
             elif raw_text.lower().startswith('@vecinos'):
                 # Handle @vecinos command to list group members (groups only)
                 await self._handle_vecinos_command(message)
+            elif raw_text.lower().startswith('@tailor'):
+                # Handle @tailor command for friendly AI neighbor chat (works everywhere)
+                await self._handle_tailor_command(message, raw_text)
             else:
                 # Ignore all other commands silently
                 print(f"🔍 COMMAND DEBUG - IGNORING COMMAND: '{raw_text[:50]}...'")
@@ -638,6 +649,7 @@ class CommandProcessor:
    • @info - Mostrar información del sistema
    • @infodb - Mostrar estructura de base de datos
    • @vecinos - Listar miembros del grupo con datos básicos
+   • @tailor [pregunta] - Chatea con Tailor, tu vecino amigable 🤖
    • @editar - Editar datos de miembros (solo administradores)
    • @exportar [csv/json] - Exportar datos de miembros
    • @importar - Importar datos de miembros
@@ -939,3 +951,174 @@ class CommandProcessor:
         except Exception as e:
             print(f"Set default device error: {str(e)}")
             return False
+    
+    def _cache_message(self, message: WhatsAppMessage):
+        """Cache message for @tailor command context (stores last 3 messages per chat)"""
+        try:
+            chat_id = message.chat_id
+            
+            # Don't cache @tailor commands or SOS messages to avoid confusion
+            if message.text.lower().startswith('@tailor') or self._is_sos_command(message.text):
+                return
+            
+            # Initialize chat cache if needed
+            if chat_id not in self._message_cache:
+                self._message_cache[chat_id] = []
+            
+            # Create message entry
+            message_entry = {
+                "text": message.text,
+                "sender": message.contact_name or message.from_phone,
+                "timestamp": time.time()
+            }
+            
+            # Add to cache (keep only last 3 messages)
+            self._message_cache[chat_id].append(message_entry)
+            if len(self._message_cache[chat_id]) > 3:
+                self._message_cache[chat_id].pop(0)
+            
+            print(f"💬 Cached message for chat {chat_id}: {len(self._message_cache[chat_id])} messages stored")
+            
+        except Exception as e:
+            print(f"❌ Error caching message: {str(e)}")
+    
+    async def _handle_tailor_command(self, message: WhatsAppMessage, raw_text: str):
+        """Handle @tailor command - friendly AI neighbor chat using OpenAI"""
+        try:
+            print(f"🤖 @tailor command received from {message.contact_name or message.from_phone}")
+            
+            # Extract the question/content after @tailor
+            user_query = raw_text[7:].strip()  # Remove "@tailor" and whitespace
+            
+            if not user_query:
+                await self._send_text_message(message.chat_id, 
+                    "👋 ¡Hola! Soy Tailor, tu vecino digital amigable 🤖\n\n"
+                    "Pregúntame lo que quieras después de @tailor\n\n"
+                    "Ejemplo: @tailor ¿qué tiempo hace hoy?\n\n"
+                    "💻 Desarrollado por Tailor Tech")
+                return
+            
+            # Get recent message context (last 3 messages)
+            chat_context = ""
+            if message.chat_id in self._message_cache:
+                recent_messages = self._message_cache[message.chat_id]
+                if recent_messages:
+                    chat_context = "Contexto de conversación reciente:\\n"
+                    for msg in recent_messages:
+                        chat_context += f"- {msg['sender']}: {msg['text'][:100]}...\\n"
+            
+            # Generate AI response using OpenAI
+            try:
+                ai_response = await self._generate_tailor_response(user_query, chat_context, message)
+                
+                # Send the response
+                await self._send_text_message(message.chat_id, ai_response)
+                print(f"✅ @tailor response sent to {message.contact_name or message.from_phone}")
+                
+            except Exception as ai_error:
+                print(f"❌ AI generation failed: {str(ai_error)}")
+                # Fallback response
+                fallback_response = f"🤖 ¡Hola! Soy Tailor, tu vecino amigable 👋\\n\\n" \
+                                  f"Preguntaste: \"{user_query}\"\\n\\n" \
+                                  f"¡Ay, disculpa! En este momento estoy un poco ocupado con los sistemas de emergencia, " \
+                                  f"pero me parece una pregunta muy interesante. ¿Podrías intentar de nuevo en un ratito? 😅\\n\\n" \
+                                  f"💻 Desarrollado por Tailor Tech"
+                
+                await self._send_text_message(message.chat_id, fallback_response)
+                
+        except Exception as e:
+            print(f"❌ Error processing @tailor command: {str(e)}")
+            await self._send_text_message(message.chat_id, f"❌ Error procesando comando @tailor: {str(e)}")
+    
+    async def _generate_tailor_response(self, user_query: str, chat_context: str, message: WhatsAppMessage) -> str:
+        """Generate friendly AI response using OpenAI GPT-4o-mini (cheapest model)"""
+        import aiohttp
+        import json
+        
+        # Get OpenAI API key
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        if not openai_api_key:
+            raise Exception("OpenAI API key not configured")
+        
+        # Get sender info
+        sender_name = message.contact_name or "Amigo"
+        group_name = message.chat_name or "este grupo"
+        
+        # Create friendly neighbor prompt
+        system_prompt = f"""Eres Tailor, un vecino digital súper amigable y divertido de una comunidad chilena. 
+        
+PERSONALIDAD:
+- Muy amigable, cercano y cálido como un buen vecino
+- Hablas en español chileno informal pero respetuoso 
+- Usas emojis apropiados para ser más expresivo
+- Eres servicial y siempre con buena onda
+- Ocasionalmente usas chilenismos suaves (bacán, fome, etc.)
+- Te gusta hacer bromas suaves y ser positivo
+
+CONTEXTO:
+- Vives en una comunidad que usa WhatsApp para emergencias
+- Conoces a todos los vecinos y te importa su bienestar
+- Eres parte del sistema de alertas de emergencia creado por Tailor Tech
+- Puedes hablar de cualquier tema, no solo emergencias
+
+ESTILO DE RESPUESTA:
+- Máximo 200 palabras
+- Siempre amigable y positivo
+- Si no sabes algo específico, lo admites honestamente
+- Termina con el footer de Tailor Tech solo si la respuesta es larga
+- Para respuestas cortas, no uses el footer
+
+IMPORTANTE: Eres un vecino real, no menciones que eres AI a menos que te pregunten directamente."""
+
+        user_prompt = f"""El vecino {sender_name} de {group_name} te pregunta: "{user_query}"
+
+{chat_context}
+
+Responde como Tailor, su vecino amigable. ¡Sé natural, cálido y útil!"""
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                headers = {
+                    "Authorization": f"Bearer {openai_api_key}",
+                    "Content-Type": "application/json"
+                }
+                
+                payload = {
+                    "model": "gpt-4o-mini",  # Cheapest OpenAI model
+                    "messages": [
+                        {
+                            "role": "system", 
+                            "content": system_prompt
+                        },
+                        {
+                            "role": "user",
+                            "content": user_prompt
+                        }
+                    ],
+                    "max_tokens": 250,
+                    "temperature": 0.8  # Higher temperature for more personality
+                }
+                
+                async with session.post(
+                    "https://api.openai.com/v1/chat/completions", 
+                    headers=headers, 
+                    json=payload,
+                    timeout=15
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        ai_message = result['choices'][0]['message']['content'].strip()
+                        
+                        # Add Tailor Tech footer for longer responses
+                        if len(ai_message) > 100:
+                            ai_message += "\\n\\n💻 Desarrollado por Tailor Tech"
+                        
+                        print(f"🤖 Generated {len(ai_message)} character Tailor response")
+                        return ai_message
+                    else:
+                        error_text = await response.text()
+                        raise Exception(f"OpenAI API error {response.status}: {error_text}")
+                        
+        except Exception as e:
+            print(f"❌ OpenAI request error: {str(e)}")
+            raise e
