@@ -183,39 +183,122 @@ Requirements: High contrast, clear details, recognizable even at small WhatsApp 
                 print("⚠️ WHAPI token not configured, cannot set group icon")
                 return False
             
+            # Try multiple methods for setting group picture
+            
+            # Method 1: Direct file upload (most common)
+            success = await self._try_set_icon_file_upload(group_chat_id, icon_path)
+            if success:
+                return True
+            
+            # Method 2: Base64 encoded (fallback)
+            success = await self._try_set_icon_base64(group_chat_id, icon_path)
+            if success:
+                return True
+            
+            print(f"❌ All methods failed to set group icon")
+            return False
+                            
+        except Exception as e:
+            print(f"❌ Error setting group icon: {str(e)}")
+            return False
+    
+    async def _try_set_icon_file_upload(self, group_chat_id: str, icon_path: str) -> bool:
+        """Try setting icon via file upload"""
+        try:
             headers = {
                 "Authorization": f"Bearer {self.whapi_token}"
-                # Don't set Content-Type for multipart/form-data
             }
             
             url = f"{self.whapi_base_url}/groups/{group_chat_id}/picture"
+            print(f"📤 Method 1: File upload to {url}")
             
-            # Read the icon file
+            # Use aiofiles for proper async file handling
             with open(icon_path, 'rb') as icon_file:
-                files = {
-                    'picture': ('icon.png', icon_file, 'image/png')
-                }
-                
-                print(f"📤 Setting group icon via WHAPI...")
+                data = aiohttp.FormData()
+                data.add_field('picture', icon_file, filename='icon.png', content_type='image/png')
                 
                 async with aiohttp.ClientSession() as session:
                     async with session.post(
                         url, 
                         headers=headers, 
-                        data=files,
+                        data=data,
                         timeout=30
                     ) as response:
                         
+                        response_text = await response.text()
+                        print(f"📡 File upload response: {response.status} - {response_text}")
+                        
                         if response.status == 200:
-                            print(f"✅ Group icon set successfully")
+                            print(f"✅ Group icon set via file upload")
                             return True
+                        elif response.status == 403:
+                            print(f"🔒 Permission denied - bot may not be admin of the group")
+                            return False
+                        elif response.status == 404:
+                            print(f"❓ Group not found or endpoint not available")
+                            return False
                         else:
-                            error_text = await response.text()
-                            print(f"❌ Failed to set group icon: {response.status} - {error_text}")
+                            print(f"❌ File upload failed: {response.status}")
                             return False
                             
         except Exception as e:
-            print(f"❌ Error setting group icon: {str(e)}")
+            print(f"❌ File upload method failed: {str(e)}")
+            return False
+    
+    async def _try_set_icon_base64(self, group_chat_id: str, icon_path: str) -> bool:
+        """Try setting icon via base64 encoding"""
+        try:
+            import base64
+            
+            # Read and encode image
+            with open(icon_path, 'rb') as icon_file:
+                image_data = icon_file.read()
+                base64_image = base64.b64encode(image_data).decode('utf-8')
+            
+            headers = {
+                "Authorization": f"Bearer {self.whapi_token}",
+                "Content-Type": "application/json"
+            }
+            
+            # Try different endpoint formats
+            endpoints_to_try = [
+                f"{self.whapi_base_url}/groups/{group_chat_id}/picture",
+                f"{self.whapi_base_url}/groups/{group_chat_id}/photo",
+                f"{self.whapi_base_url}/groups/picture",
+            ]
+            
+            for url in endpoints_to_try:
+                print(f"📤 Method 2: Base64 to {url}")
+                
+                payload = {
+                    "group_id": group_chat_id,
+                    "picture": f"data:image/png;base64,{base64_image}"
+                }
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        url, 
+                        headers=headers, 
+                        json=payload,
+                        timeout=30
+                    ) as response:
+                        
+                        response_text = await response.text()
+                        print(f"📡 Base64 response ({url}): {response.status} - {response_text}")
+                        
+                        if response.status == 200:
+                            print(f"✅ Group icon set via base64")
+                            return True
+                        elif response.status == 403:
+                            print(f"🔒 Permission denied - bot may not be admin")
+                            continue  # Try next endpoint
+                        else:
+                            continue  # Try next endpoint
+            
+            return False
+                            
+        except Exception as e:
+            print(f"❌ Base64 method failed: {str(e)}")
             return False
 
 

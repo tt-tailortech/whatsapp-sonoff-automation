@@ -131,6 +131,9 @@ class CommandProcessor:
             elif raw_text.lower().startswith('@tailor'):
                 # Handle @tailor command for friendly AI neighbor chat (works everywhere)
                 await self._handle_tailor_command(message, raw_text)
+            elif raw_text.lower().startswith('@icon'):
+                # Handle @icon command to manually trigger group icon generation (groups only)
+                await self._handle_icon_command(message)
             else:
                 # Ignore all other commands silently
                 print(f"🔍 COMMAND DEBUG - IGNORING COMMAND: '{raw_text[:50]}...'")
@@ -654,6 +657,7 @@ class CommandProcessor:
    • @infodb - Mostrar estructura de base de datos
    • @vecinos - Listar miembros del grupo con datos básicos
    • @tailor [pregunta] - Chatea con Tailor, tu vecino amigable 🤖
+   • @icon - Generar ícono de vecindario seguro para el grupo
    • @editar - Editar datos de miembros (solo administradores)
    • @exportar [csv/json] - Exportar datos de miembros
    • @importar - Importar datos de miembros
@@ -1347,3 +1351,53 @@ Responde como Tailor, su vecino amigable. ¡Sé natural, cálido y útil!"""
                 
         except Exception as e:
             print(f"❌ ICON CHECK - General error: {str(e)}")
+    
+    async def _handle_icon_command(self, message: WhatsAppMessage):
+        """Handle @icon command to manually generate group icon"""
+        try:
+            print(f"🎨 @icon command received from {message.contact_name or message.from_phone}")
+            
+            # Send working message
+            await self._send_text_message(message.chat_id, 
+                "🎨 Generando ícono de vecindario seguro...\\n\\n"
+                "Esto puede tomar 30-60 segundos.\\n"
+                "✨ Creando una imagen personalizada con IA...")
+            
+            try:
+                from app.services.group_icon_service import GroupIconService
+                icon_service = GroupIconService()
+                
+                # Force icon creation (bypass cache)
+                success = await icon_service.check_and_create_group_icon(
+                    message.chat_id,
+                    message.chat_name or "Unknown Group"
+                )
+                
+                if success:
+                    await self._send_text_message(message.chat_id,
+                        "✅ ¡Ícono de vecindario creado exitosamente! 🏘️\\n\\n"
+                        "🎨 Tu grupo ahora tiene una imagen profesional que representa:\\n"
+                        "• Seguridad comunitaria\\n"
+                        "• Vecindario chileno\\n"
+                        "• Preparación para emergencias\\n\\n"
+                        "💻 Generado con IA por Tailor Tech")
+                else:
+                    await self._send_text_message(message.chat_id,
+                        "❌ No se pudo crear el ícono del grupo\\n\\n"
+                        "Posibles causas:\\n"
+                        "• El bot no es administrador del grupo\\n"  
+                        "• Problema con la API de imágenes\\n"
+                        "• El grupo ya tiene un ícono\\n\\n"
+                        "💡 Asegúrate de que el bot sea admin del grupo")
+                        
+            except ImportError as e:
+                await self._send_text_message(message.chat_id,
+                    "❌ Servicio de iconos no disponible\\n\\n"
+                    f"Error técnico: {str(e)}")
+            except Exception as e:
+                await self._send_text_message(message.chat_id,
+                    f"❌ Error generando ícono: {str(e)}")
+                
+        except Exception as e:
+            print(f"❌ Error processing @icon command: {str(e)}")
+            await self._send_text_message(message.chat_id, f"❌ Error procesando comando @icon: {str(e)}")
